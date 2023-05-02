@@ -1,4 +1,4 @@
 """specifies filterframes version"""
-from .fastaframes import FastaEntry, fasta_to_df, df_to_entries, to_fasta, fasta_to_entries
+from .fastaframes import FastaEntry, to_df, to_fasta, fasta_to_entries, df_to_entries, entries_to_fasta, entries_to_df
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'

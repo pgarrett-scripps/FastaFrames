@@ -2,70 +2,13 @@
 This module provides functions for working with FASTA files.
 """
 
-import os
 from dataclasses import dataclass, asdict
 from io import TextIOWrapper, StringIO
-from typing import Union, TextIO, List, Dict, Tuple, Any
+from typing import Union, TextIO, List, Dict, Tuple
 
 import pandas as pd
 
-
-def _get_lines(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) -> List[str]:
-    """
-    Retrieve lines from a file or string input.
-
-    This function reads lines from a given input, which can be a file path, a string containing lines,
-    a TextIOWrapper, or a StringIO object.
-
-    Args:
-        file_input (Union[str, TextIOWrapper, StringIO]): The input source.
-
-    Returns:
-        list: A list of lines from the input source.
-
-    Raises:
-        ValueError: If the input type is not supported.
-    """
-    if isinstance(file_input, str):
-        if os.path.exists(file_input):
-            with open(file=file_input, mode='r', encoding='UTF-8') as file:
-                lines = file.read().split('\n')
-        else:
-            lines = file_input.split('\n')
-    elif isinstance(file_input, (TextIOWrapper, TextIO)):
-        lines = file_input.read().split('\n')
-
-    elif isinstance(file_input, StringIO):
-        lines = file_input.getvalue().split('\n')
-    else:
-        raise ValueError(f'Unsupported input type: {type(file_input)}!')
-
-    return lines
-
-
-def _convert_to_best_datatype(values: List[Any]):
-    """
-    Convert a list of values to the most suitable datatype.
-
-    This function tries to convert a list of values to either float, int, or str datatypes, in that order.
-
-    Args:
-        values (List[Any]): A list of values to be converted.
-
-    Returns:
-        list: A list of converted values.
-
-    Raises:
-        ValueError: If unable to convert values to any datatype.
-    """
-
-    for datatype in [float, int, str]:
-        try:
-            converted_values = [datatype(value) for value in values]
-            return converted_values
-        except (ValueError, TypeError):
-            continue
-    raise ValueError("Unable to convert values to any datatype")
+from fastaframes.util import get_lines, convert_to_best_datatype
 
 
 @dataclass
@@ -121,7 +64,7 @@ def fasta_to_entries(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) ->
         List[FastaEntry]: A list of FastaEntry objects.
 
     """
-    lines = _get_lines(file_input)
+    lines = get_lines(file_input)
     entries = []
     for line in lines:
         if line == "":
@@ -135,22 +78,40 @@ def fasta_to_entries(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) ->
     return entries
 
 
-def fasta_to_df(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) -> pd.DataFrame:
+def entries_to_df(entries: List[FastaEntry]) -> pd.DataFrame:
     """
-        Converts a FASTA file to a pandas DataFrame.
+        Converts a list of FastaEntry objects to a pandas DataFrame.
 
         Args:
-            file_input (Union[str, TextIOWrapper, StringIO, TextIO]): A string or file object containing the FASTA data.
+            entries (List[FastaEntry]): A list of FastaEntry objects.
 
         Returns:
             pd.DataFrame: A pandas DataFrame containing the FASTA data.
 
     """
-    entries = fasta_to_entries(file_input)
     fasta_df = pd.DataFrame([asdict(entry) for entry in entries])
     for col_name in fasta_df:
-        fasta_df[col_name] = _convert_to_best_datatype(fasta_df[col_name])
+        fasta_df[col_name] = convert_to_best_datatype(fasta_df[col_name])
     return fasta_df
+
+
+def to_df(fasta_data: Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntry]]) -> pd.DataFrame:
+    """
+        Converts a FASTA input or list of FastaEntry objects to a pandas DataFrame.
+
+        Args:
+            fasta_data (Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntry]]): A string or file object
+                containing the FASTA data, or a list of FastaEntry objects.
+
+        Returns:
+            pd.DataFrame: A pandas DataFrame containing the FASTA data.
+
+    """
+
+    if isinstance(fasta_data, list):
+        return entries_to_df(fasta_data)
+    else:
+        return entries_to_df(fasta_to_entries(fasta_data))
 
 
 def df_to_entries(fasta_df: pd.DataFrame) -> List[FastaEntry]:
@@ -167,23 +128,17 @@ def df_to_entries(fasta_df: pd.DataFrame) -> List[FastaEntry]:
     return entries
 
 
-def to_fasta(fasta_input: Union[pd.DataFrame, List[FastaEntry]]) -> StringIO:
+def entries_to_fasta(entries: List[FastaEntry], file: str = None) -> Union[StringIO, None]:
     """
-    Converts a fasta dataframe to a StringIO object containing the fasta content.
+    Converts a list of FastaEntry objects to a StringIO object or file containing the fasta content.
 
     Args:
-        fasta_input (pd.DataFrame): The fasta dataframe.
-
+        entries (List[FastaEntry]): The list containing FastaEntry objects.
+        file (str): The path to the output file, if None to_fasta will return a StringIO.
     Returns:
         StringIO: A StringIO object containing the fasta content.
     """
     fasta_string = StringIO()
-
-    if isinstance(fasta_input, pd.DataFrame):
-        entries = df_to_entries(fasta_input)
-    else:
-        entries = fasta_input
-
     for entry in entries:
         fasta_string.write(f'>{entry.db}|{entry.unique_identifier}|{entry.entry_name}')
         if entry.protein_name:
@@ -202,7 +157,30 @@ def to_fasta(fasta_input: Union[pd.DataFrame, List[FastaEntry]]) -> StringIO:
         fasta_string.write(entry.protein_sequence + '\n')
 
     fasta_string.seek(0)
+
+    if file is not None:
+        with open(file, 'w') as output_file:
+            output_file.write(fasta_string.getvalue())
+        return None
+
     return fasta_string
+
+
+def to_fasta(fasta_data: Union[pd.DataFrame, List[FastaEntry]], file: str = None) -> Union[StringIO, None]:
+    """
+    Converts a fasta dataframe or list of FastaEntries to a StringIO object or file containing the fasta content.
+
+    Args:
+        fasta_data (pd.DataFrame): The fasta dataframe.
+        file (str): The path to the output file, if None to_fasta will return a StringIO
+    Returns:
+        StringIO: A StringIO object containing the fasta content.
+    """
+
+    if isinstance(fasta_data, pd.DataFrame):
+        return entries_to_fasta(df_to_entries(fasta_data), file)
+    else:
+        return entries_to_fasta(fasta_data, file)
 
 
 def _extract_fasta_header_elements(fasta_entry: str) -> List[str]:

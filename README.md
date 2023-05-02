@@ -8,61 +8,56 @@ and write data back to FASTA files. It also supports converting FASTA files to a
 
 ## Features
 - Read FASTA files into pandas DataFrames
-- Convert FASTA files to a list of FastaEntry objects
 - Write FASTA files from pandas DataFrames
-- Write FASTA files from a list of FastaEntry objects
 
 ## Usage
+
+To install fastaframes use pip:
+
+```sh
+pip install fastaframes
+```
+
 ### Reading FASTA files
 To read a FASTA file and convert it to a pandas DataFrame:
 
 ```python
-from fastaframes import fasta_to_df
+from fastaframes import to_df
 
-with open('example.fasta', 'r') as file_input:
-    fasta_df = fasta_to_df(file_input)
+# IO input
+with open('example.fasta', 'r') as fasta_io:
+    fasta_df = to_df(fasta_data=fasta_io)
 
+# or
+
+# File input
+fasta_df = to_df(fasta_data='example.fasta')
+    
 print(fasta_df.head())
-```
-
-To read a FASTA file and convert it to a list of FastaEntry objects:
-
-```python
-from fastaframes import fasta_to_entries
-
-with open('example.fasta', 'r') as file_input:
-    entries = fasta_to_entries(file_input)
-
-print(entries[:5])
 ```
 
 ### Writing FASTA files
 To write a pandas DataFrame to a FASTA file:
 
 ```python
-import pandas as pd
 from fastaframes import to_fasta
 
-fasta_df = pd.DataFrame() # empty
-fasta_content = to_fasta(fasta_df)
-
+# Write StringIO to file
+fasta_io = to_fasta(fasta_data=fasta_df) # outputs StringIO if file=None
 with open('output.fasta', 'w') as output_file:
-    output_file.write(fasta_content.getvalue())
+    output_file.write(fasta_io.getvalue())
+
+# or
+    
+# Write directly to file
+to_fasta(fasta_data=fasta_df, file='output.fasta')
 ```
 
-To write a list of FastaEntry objects to a FASTA file:
+## Example DataFrame:
 
-```python
-from fastaframes import to_fasta
-
-entries = [] # empty
-fasta_content = to_fasta(entries)
-
-with open('output.fasta', 'w') as output_file:
-    output_file.write(fasta_content.getvalue())
-```
-
-## Customization
-The FastaEntry dataclass can be customized to store additional information or modify existing attributes
-as needed. This can be done by editing the FastaEntry dataclass definition and updating the extract_fasta_info
-function accordingly.
+|   | db | unique_identifier | entry_name   | protein_name                                         | organism_name | organism_identifier | gene_name | protein_existence | sequence_version | protein_sequence                                       |
+|---|----|------------------|--------------|------------------------------------------------------|---------------|---------------------|-----------|-------------------|------------------|--------------------------------------------------------|
+| 0 | sp | A0A087X1C5       | CP2D7_HUMAN  | Putative cytochrome P450 2D7                         | Homo sapiens  | 9606.0              | CYP2D7    | 5.0               | 1.0              | MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ |
+| 1 | sp | A0A0B4J2F2       | SIK1B_HUMAN  | Putative serine/threonine-protein kinase SIK1B        | Homo sapiens  | 9606.0              | SIK1B     | 5.0               | 1.0              | MVIMSEFSADPAGQGQGQQKPLRVGFYDIERTLGKGNFAVVKLARHRVTKTQVAIKIIDKLVQ |
+| 2 | sp | A0A0C5B5G6       | MOTSC_HUMAN  | Mitochondrial-derived peptide MOTS-c                 | Homo sapiens  | 9606.0              | MT-RNR1   | 1.0               | 1.0              | MRWQEMGYIFYPRKLR                                      |
+| 3 | sp | A0A0K2S4Q6       | CD3CH_HUMAN  | Protein CD300H                                       | Homo sapiens  | 9606.0              | CD300H    | 1.0               | 1.0              | MTQRAGAAMLPSALLLLCVPGCLTVSGPSTVMGAVGESLSVQCRYEEKYKTFNKYWCRQP |

@@ -20,6 +20,18 @@ classifiers = [
 dependencies = [
     "pandas",
 ]
+keywords = [
+    "Fasta file",
+    "Pandas DataFrame",
+    "Data conversion",
+    "Python module",
+    "FASTA format",
+    "Reading files",
+    "Writing files",
+    "Dataclass",
+    "Bioinformatics",
+    "Scientific computing"
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

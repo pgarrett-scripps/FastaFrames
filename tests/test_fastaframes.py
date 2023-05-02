@@ -3,29 +3,14 @@ from io import StringIO
 
 import pandas as pd
 
-from fastaframes.fastaframes import fasta_to_entries, FastaEntry, _extract_fasta_info, fasta_to_df, df_to_entries, \
-    _convert_to_best_datatype, to_fasta
-
-
-def test_extract_fasta_info():
-    fasta_entry = '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1\n'
-    result = _extract_fasta_info(fasta_entry)
-    expected = FastaEntry(
-        db='sp',
-        unique_identifier='A0A087X1C5',
-        entry_name='CP2D7_HUMAN',
-        protein_name='Putative cytochrome P450 2D7',
-        organism_name='Homo sapiens',
-        organism_identifier='9606',
-        gene_name='CYP2D7',
-        protein_existence='5',
-        sequence_version='1'
-    )
-    assert result == expected
+from fastaframes import fasta_to_entries, FastaEntry, to_df, df_to_entries, to_fasta
+from fastaframes.util import convert_to_best_datatype
 
 
 def test_fasta_to_entries():
-    fasta_content = '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1\nMGLEALVPLAMIVAIFLLLVDLMHR\nHQRWAARYPPGPLPLPGLGNLLH\nVDFQNTPYCFDQ\n'
+    fasta_content = \
+        '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
+        '\nMGLEALVPLAMIVAIFLLLVDLMHR\nHQRWAARYPPGPLPLPGLGNLLH\nVDFQNTPYCFDQ\n'
     file_input = StringIO(fasta_content)
     result = fasta_to_entries(file_input)
     expected = [FastaEntry(
@@ -44,7 +29,9 @@ def test_fasta_to_entries():
 
 
 def test_fasta_to_entries_no_newlines():
-    fasta_content = '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
+    fasta_content = \
+        '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
+        '\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
     file_input = StringIO(fasta_content)
     result = fasta_to_entries(file_input)
     expected = [FastaEntry(
@@ -63,9 +50,11 @@ def test_fasta_to_entries_no_newlines():
 
 
 def test_from_fasta():
-    fasta_content = '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
+    fasta_content = \
+        '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
+        '\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
     file_input = StringIO(fasta_content)
-    result = fasta_to_df(file_input)
+    result = to_df(file_input)
     expected = pd.DataFrame([asdict(FastaEntry(
         db='sp',
         unique_identifier='A0A087X1C5',
@@ -80,7 +69,7 @@ def test_from_fasta():
     ))])
 
     for col_name in expected:
-        expected[col_name] = _convert_to_best_datatype(expected[col_name])
+        expected[col_name] = convert_to_best_datatype(expected[col_name])
 
     pd.testing.assert_frame_equal(result, expected)
 
@@ -131,7 +120,9 @@ def test_to_fasta():
     }
     fasta_df = pd.DataFrame(data)
     result = to_fasta(fasta_df)
-    expected = '>sp|A0A087X1C5|CP2D7_HUMAN PN=Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
+    expected = \
+        '>sp|A0A087X1C5|CP2D7_HUMAN PN=Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
+        '\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
     assert result.getvalue() == expected
 
 
