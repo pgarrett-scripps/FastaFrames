@@ -2,9 +2,9 @@
 ![example workflow](https://github.com/pgarrett-scripps/FastaFrames/actions/workflows/pylint.yml/badge.svg)
 
 # FastaFrames
-This Python module provides a set of functions to work with FASTA files. 
+This Python package provides a set of functions to work with FASTA files. 
 It allows you to read FASTA files, convert them to pandas dataframes, manipulate data, 
-and write data back to FASTA files. It also supports converting FASTA files to a list of FastaEntry dataclass objects.
+and write data back to FASTA files. 
 
 ## Features
 - Read FASTA files into pandas DataFrames
@@ -53,7 +53,7 @@ with open('output.fasta', 'w') as output_file:
 to_fasta(fasta_data=fasta_df, file='output.fasta')
 ```
 
-## Example DataFrame:
+## Example Fasta DataFrame:
 
 |   | db | unique_identifier | entry_name   | protein_name                                         | organism_name | organism_identifier | gene_name | protein_existence | sequence_version | protein_sequence                                       |
 |---|----|------------------|--------------|------------------------------------------------------|---------------|---------------------|-----------|-------------------|------------------|--------------------------------------------------------|
