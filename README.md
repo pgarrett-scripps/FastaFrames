@@ -1,8 +1,10 @@
+![example workflow](https://github.com/pgarrett-scripps/FastaFrames/actions/workflows/python-package.yml/badge.svg)
+![example workflow](https://github.com/pgarrett-scripps/FastaFrames/actions/workflows/pylint.yml/badge.svg)
+
 # FastaFrames
 This Python module provides a set of functions to work with FASTA files. 
 It allows you to read FASTA files, convert them to pandas dataframes, manipulate data, 
-and write data back to FASTA files. It also supports converting FASTA files to a list of custom 
-FastaEntry dataclass objects.
+and write data back to FASTA files. It also supports converting FASTA files to a list of FastaEntry dataclass objects.
 
 ## Features
 - Read FASTA files into pandas DataFrames
