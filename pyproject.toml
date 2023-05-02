@@ -36,6 +36,9 @@ keywords = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 
+[project.urls]
+repository = "https://github.com/pgarrett-scripps/FastaFrames.git"
+
 [tool.setuptools.dynamic]
 version = {attr = "fastaframes.__version__"}
 

@@ -110,8 +110,8 @@ def to_df(fasta_data: Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntr
 
     if isinstance(fasta_data, list):
         return entries_to_df(fasta_data)
-    else:
-        return entries_to_df(fasta_to_entries(fasta_data))
+
+    return entries_to_df(fasta_to_entries(fasta_data))
 
 
 def df_to_entries(fasta_df: pd.DataFrame) -> List[FastaEntry]:
@@ -159,7 +159,7 @@ def entries_to_fasta(entries: List[FastaEntry], file: str = None) -> Union[Strin
     fasta_string.seek(0)
 
     if file is not None:
-        with open(file, 'w') as output_file:
+        with open(file=file, mode='w') as output_file:
             output_file.write(fasta_string.getvalue())
         return None
 
@@ -179,8 +179,8 @@ def to_fasta(fasta_data: Union[pd.DataFrame, List[FastaEntry]], file: str = None
 
     if isinstance(fasta_data, pd.DataFrame):
         return entries_to_fasta(df_to_entries(fasta_data), file)
-    else:
-        return entries_to_fasta(fasta_data, file)
+
+    return entries_to_fasta(fasta_data, file)
 
 
 def _extract_fasta_header_elements(fasta_entry: str) -> List[str]:
