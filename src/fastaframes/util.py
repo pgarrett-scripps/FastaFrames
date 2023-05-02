@@ -1,5 +1,5 @@
 """
-This module provides some simple utility functions
+This module provides some simple utility functions for filterframes
 """
 
 import os
@@ -9,8 +9,6 @@ from typing import Union, List, TextIO, Any
 
 def get_lines(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) -> List[str]:
     """
-    Retrieve lines from a file or string input.
-
     This function reads lines from a given input, which can be a file path, a string containing lines,
     a TextIOWrapper, or a StringIO object.
 
@@ -42,8 +40,6 @@ def get_lines(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) -> List[s
 
 def convert_to_best_datatype(values: List[Any]):
     """
-    Convert a list of values to the most suitable datatype.
-
     This function tries to convert a list of values to either float, int, or str datatypes, in that order.
 
     Args:

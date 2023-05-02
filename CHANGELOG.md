@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 ## Changes
 - Better documentation
 - Simpler README
+- Moved FastaEntry serialize function within class
 
 ## [0.0.1]
 
