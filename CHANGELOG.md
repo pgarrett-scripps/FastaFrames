@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.3]
+
+## Changes
+- df_to_entries now filters by expected columns prior to creating entries
+
+
 ## [0.0.2]
 
 ## Added

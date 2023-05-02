@@ -124,8 +124,10 @@ def df_to_entries(fasta_df: pd.DataFrame) -> List[FastaEntry]:
     Returns:
         List[FastaEntry]: A list of FastaEntry objects.
     """
+    cols = ['db', 'unique_identifier', 'entry_name', 'protein_name', 'organism_name', 'organism_identifier',
+            'gene_name', 'protein_existence', 'sequence_version', 'protein_sequence']
 
-    entries = [FastaEntry(**row.to_dict()) for _, row in fasta_df.iterrows()]
+    entries = [FastaEntry(**row.to_dict()) for _, row in fasta_df[cols].iterrows()]
     return entries
 
 
