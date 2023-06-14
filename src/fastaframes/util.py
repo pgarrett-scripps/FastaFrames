@@ -4,11 +4,15 @@ This module provides some simple utility functions for filterframes
 
 import os
 from io import TextIOWrapper, StringIO
-from typing import Union, List, TextIO, Any
+from typing import Union, List, TextIO, Any, Generator
+
+FILE_TYPES = Union[str, TextIOWrapper, StringIO, TextIO]
 
 
-def get_lines(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) -> List[str]:
+def _get_lines(file_input: FILE_TYPES) -> Generator[str, None, None]:
     """
+    Retrieve lines from a file or string input.
+
     This function reads lines from a given input, which can be a file path, a string containing lines,
     a TextIOWrapper, or a StringIO object.
 
@@ -16,26 +20,33 @@ def get_lines(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) -> List[s
         file_input (Union[str, TextIOWrapper, StringIO]): The input source.
 
     Returns:
-        list: A list of lines from the input source.
+        generator: A generator that yields lines from the input source.
 
     Raises:
         ValueError: If the input type is not supported.
     """
-    if isinstance(file_input, str):
+    if isinstance(file_input, str):  # File path or string
         if os.path.exists(file_input):
             with open(file=file_input, mode='r', encoding='UTF-8') as file:
-                lines = file.read().split('\n')
+                for line in file:
+                    yield line.rstrip('\n')
         else:
-            lines = file_input.split('\n')
-    elif isinstance(file_input, (TextIOWrapper, TextIO)):
-        lines = file_input.read().split('\n')
-
-    elif isinstance(file_input, StringIO):
-        lines = file_input.getvalue().split('\n')
+            for line in file_input.split('\n'):
+                yield line.rstrip('\n')
+    elif isinstance(file_input, (TextIOWrapper, TextIO)):  # TextIOWrapper or StringIO
+        file_input.seek(0)
+        for line in file_input:
+            yield line.rstrip('\n')
+    elif isinstance(file_input, StringIO):  # StringIO
+        file_input.seek(0)
+        for line in file_input.readlines():
+            yield line.rstrip('\n')
     else:
-        raise ValueError(f'Unsupported input type: {type(file_input)}!')
-
-    return lines
+        try:
+            for line in file_input:
+                yield line.decode('UTF-8').rstrip('\n')
+        except Exception as e:
+            raise ValueError(f'Unsupported input type: {type(file_input)}!')
 
 
 def convert_to_best_datatype(values: List[Any]):

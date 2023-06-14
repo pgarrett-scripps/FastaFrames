@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## Changes
 - df_to_entries now filters by expected columns prior to creating entries
-
+- _get_lines now works with streamlit uploaded file, and any io-type 
 
 ## [0.0.2]
 

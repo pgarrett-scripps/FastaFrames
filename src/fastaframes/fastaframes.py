@@ -8,7 +8,7 @@ from typing import Union, TextIO, List, Dict, Tuple
 
 import pandas as pd
 
-from fastaframes.util import get_lines, convert_to_best_datatype
+from fastaframes.util import _get_lines, convert_to_best_datatype
 
 
 @dataclass
@@ -64,7 +64,7 @@ def fasta_to_entries(file_input: Union[str, TextIOWrapper, StringIO, TextIO]) ->
         List[FastaEntry]: A list of FastaEntry objects.
     """
 
-    lines = get_lines(file_input)
+    lines = _get_lines(file_input)
 
     entries = []
     for line in lines:
