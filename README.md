@@ -24,16 +24,7 @@ To read a FASTA file and convert it to a pandas DataFrame:
 ```python
 from fastaframes import to_df
 
-# IO input
-with open('example.fasta', 'r') as fasta_io:
-    fasta_df = to_df(fasta_data=fasta_io)
-
-# or
-
-# File input
 fasta_df = to_df(fasta_data='example.fasta')
-    
-print(fasta_df.head())
 ```
 
 ### Writing FASTA files
@@ -42,14 +33,6 @@ To write a pandas DataFrame to a FASTA file:
 ```python
 from fastaframes import to_fasta
 
-# Write StringIO to file
-fasta_io = to_fasta(fasta_data=fasta_df) # outputs StringIO if file=None
-with open('output.fasta', 'w') as output_file:
-    output_file.write(fasta_io.getvalue())
-
-# or
-    
-# Write directly to file
 to_fasta(fasta_data=fasta_df, file='output.fasta')
 ```
 
