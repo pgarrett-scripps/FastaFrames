@@ -19,7 +19,6 @@ pip install fastaframes
 ```
 
 ### Reading FASTA files
-To read a FASTA file and convert it to a pandas DataFrame:
 
 ```python
 from fastaframes import to_df
@@ -28,7 +27,6 @@ fasta_df = to_df(fasta_data='example.fasta')
 ```
 
 ### Writing FASTA files
-To write a pandas DataFrame to a FASTA file:
 
 ```python
 from fastaframes import to_fasta
