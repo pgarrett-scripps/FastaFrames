@@ -45,5 +45,5 @@ version = {attr = "fastaframes.__version__"}
 [tool.pylint]
 max-line-length = 120
 fail-under = 9.5
-good-names = ["db"]
+good-names = ["db", "s", "e", "df", "f"]
 extension-pkg-whitelist='pydantic'

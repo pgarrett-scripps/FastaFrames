@@ -1,10 +1,47 @@
 from dataclasses import asdict
-from io import StringIO
+from io import StringIO, TextIOWrapper
 
 import pandas as pd
 
 from fastaframes import fasta_to_entries, FastaEntry, to_df, df_to_entries, to_fasta
-from fastaframes.util import convert_to_best_datatype
+from fastaframes.util import convert_to_best_datatype, get_lines
+
+
+def tests_input_formats():
+
+    # str (file path)
+    file_path = 'tests/data/test.fasta'
+    assert isinstance(file_path, str)
+    lines1 = list(get_lines(file_path))
+
+    # TextIOWrapper
+    with open('tests/data/test.fasta') as f:
+        assert isinstance(f, TextIOWrapper)
+        lines2 = list(get_lines(f))
+
+    # StringIO
+    with open('tests/data/test.fasta') as f:
+        str_io = StringIO(f.read())
+        assert isinstance(str_io, StringIO)
+        lines3 = list(get_lines(str_io))
+
+    # str (text)
+    with open('tests/data/test.fasta') as f:
+        text_str = f.read()
+        assert isinstance(text_str, str)
+        lines4 = list(get_lines(text_str))
+
+    # bytes (for streamlit inputs)
+    with open('tests/data/test.fasta') as f:
+        text_generator = (line.encode() for line in f)
+        lines5 = list(get_lines(text_generator))
+
+    # bytes (for streamlit inputs)
+    with open('tests/data/test.fasta') as f:
+        text_generator = (line for line in f)
+        lines6 = list(get_lines(text_generator))
+
+    assert lines1 == lines2 == lines3 == lines4 == lines5 == lines6
 
 
 def test_fasta_to_entries():
@@ -127,6 +164,7 @@ def test_to_fasta():
 
 
 def test_to_fasta_from_file():
+
     with open('tests/data/test.fasta', 'r') as file_input:
         result = fasta_to_entries(file_input)
 

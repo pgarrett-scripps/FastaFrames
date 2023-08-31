@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0]
+
+## Added
+- github open source project requirements
+- examples
+
+## Changed
+- improved readability of get_lines
+- added Enum for FASTA info
+
 ## [0.0.3]
 
 ## Changes

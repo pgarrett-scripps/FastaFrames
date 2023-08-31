@@ -1,7 +1,7 @@
 from dataclasses import asdict
 
 import pytest
-from fastaframes.fastaframes import _extract_fasta_info, fasta_to_entries, FastaEntry
+from fastaframes.fastaframes import _fasta_str_to_entry, fasta_to_entries, FastaEntry
 
 
 @pytest.mark.parametrize("fasta_entry, expected", [
@@ -133,6 +133,6 @@ from fastaframes.fastaframes import _extract_fasta_info, fasta_to_entries, Fasta
 ])
 
 def test_extract_fasta_info(fasta_entry, expected):
-    result = asdict(_extract_fasta_info(fasta_entry))
+    result = asdict(_fasta_str_to_entry(fasta_entry))
     assert result == expected
 
