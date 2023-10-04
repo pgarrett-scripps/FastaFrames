@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "pandas",
+    "pandas>=1.5",
 ]
 keywords = [
     "Fasta file",

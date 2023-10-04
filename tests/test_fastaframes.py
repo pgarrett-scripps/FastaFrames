@@ -49,7 +49,7 @@ def test_fasta_to_entries():
         '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
         '\nMGLEALVPLAMIVAIFLLLVDLMHR\nHQRWAARYPPGPLPLPGLGNLLH\nVDFQNTPYCFDQ\n'
     file_input = StringIO(fasta_content)
-    result = fasta_to_entries(file_input)
+    result = list(fasta_to_entries(file_input))
     expected = [FastaEntry(
         db='sp',
         unique_identifier='A0A087X1C5',
@@ -70,7 +70,7 @@ def test_fasta_to_entries_no_newlines():
         '>sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
         '\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
     file_input = StringIO(fasta_content)
-    result = fasta_to_entries(file_input)
+    result = list(fasta_to_entries(file_input))
     expected = [FastaEntry(
         db='sp',
         unique_identifier='A0A087X1C5',
@@ -166,7 +166,7 @@ def test_to_fasta():
 def test_to_fasta_from_file():
 
     with open('tests/data/test.fasta', 'r') as file_input:
-        result = fasta_to_entries(file_input)
+        result = list(fasta_to_entries(file_input))
 
     expected = [
         FastaEntry(
@@ -222,6 +222,25 @@ def test_to_fasta_from_file():
     assert result == expected
 
     io = to_fasta(result)
-    result2 = fasta_to_entries(io)
+    result2 = list(fasta_to_entries(io))
 
     assert result2 == expected
+
+def test_skip_error():
+    bad_fasta_content = \
+        '>sp|A0A087X1C5||CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
+        '\nMGLEALVPLAMIVAIFLLLVDLMHR\nHQRWAARYPPGPLPLPGLGNLLH\nVDFQNTPYCFDQ\n'
+    file_input = StringIO(bad_fasta_content)
+    try:
+        result = list(fasta_to_entries(file_input))
+    except ValueError:
+        assert True
+
+    file_input = StringIO(bad_fasta_content)
+    try:
+        result = list(fasta_to_entries(file_input, skip_error=True))
+    except ValueError:
+        assert False
+
+    assert len(result) == 0
+
