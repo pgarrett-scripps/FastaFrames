@@ -264,15 +264,22 @@ def _extract_initial_info(line_elements: List[str]) -> Tuple[str, str, str]:
 
     first_element_parts = line_elements[0].split('|')
 
-    if len(first_element_parts) != 3:
-        raise ValueError(f"The provided header: {line_elements[0]} does not match the expected format of:"
-                         f" >db|UniqueIdentifier|EntryName")
+    if len(first_element_parts) == 3:
+        db = first_element_parts[0]
+        unique_identifier = first_element_parts[1]
+        entry_name = first_element_parts[2]
+        return db, unique_identifier, entry_name
 
-    db = first_element_parts[0]
-    unique_identifier = first_element_parts[1]
-    entry_name = first_element_parts[2]
+    if len(first_element_parts) >= 1:
+        # write warning 
 
-    return db, unique_identifier, entry_name
+        Warning(f"Invalid fasta header format: {line_elements[0]}, using only the first part as unique identifier.")
+
+        return None, line_elements[0], None
+    
+    raise ValueError(f"Invalid fasta header format: {line_elements[0]}")
+
+
 
 
 def _process_line_elements(line_elements: List[str]) -> Dict[str, List[str]]:
