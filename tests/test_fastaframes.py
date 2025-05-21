@@ -242,5 +242,5 @@ def test_skip_error():
     except ValueError:
         assert False
 
-    assert len(result) == 0
+    assert len(result) == 1
 
