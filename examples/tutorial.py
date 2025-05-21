@@ -15,14 +15,24 @@ with open(FASTA_FILE) as f:
 assert fasta_df.equals(fasta_df2)
 
 # Here are the possible columns:
-cols = ['db', 'unique_identifier', 'entry_name', 'protein_name', 'organism_name', 'organism_identifier',
-        'gene_name', 'protein_existence', 'sequence_version', 'protein_sequence']
+cols = [
+    "db",
+    "unique_identifier",
+    "entry_name",
+    "protein_name",
+    "organism_name",
+    "organism_identifier",
+    "gene_name",
+    "protein_existence",
+    "sequence_version",
+    "protein_sequence",
+]
 
-ids = fasta_df['unique_identifier'].tolist()
-assert ids == ['A0A087X1C5', 'A0A0B4J2F2', 'A0A0C5B5G6', 'A0A0K2S4Q6']
+ids = fasta_df["unique_identifier"].tolist()
+assert ids == ["A0A087X1C5", "A0A0B4J2F2", "A0A0C5B5G6", "A0A0K2S4Q6"]
 
 # Directly write to a fasta file
-to_fasta(fasta_df, 'test.fasta')
+to_fasta(fasta_df, "test.fasta")
 
 # or create an IO object
 fasta_io = to_fasta(fasta_df)

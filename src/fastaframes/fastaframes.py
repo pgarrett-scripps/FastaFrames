@@ -6,13 +6,24 @@ from dataclasses import dataclass, asdict
 from io import TextIOWrapper, StringIO
 from typing import Union, TextIO, List, Dict, Tuple, Generator, Iterable
 from enum import Enum
+import warnings
 
 import pandas as pd
 
-from fastaframes.util import get_lines, convert_to_best_datatype
+from .util import get_lines, convert_to_best_datatype
 
-COLS = ['db', 'unique_identifier', 'entry_name', 'protein_name', 'organism_name', 'organism_identifier',
-        'gene_name', 'protein_existence', 'sequence_version', 'protein_sequence']
+COLS = [
+    "db",
+    "unique_identifier",
+    "entry_name",
+    "protein_name",
+    "organism_name",
+    "organism_identifier",
+    "gene_name",
+    "protein_existence",
+    "sequence_version",
+    "protein_sequence",
+]
 
 
 class FastaFields(Enum):
@@ -27,12 +38,12 @@ class FastaFields(Enum):
     :ivar SEQUENCE_VERSION: Field for sequence version.
     """
 
-    PROTEIN_NAME = 'PN'
-    ORGANISM_NAME = 'OS'
-    ORGANISM_ID = 'OX'
-    GENE_NAME = 'GN'
-    PROTEIN_EXISTENCE = 'PE'
-    SEQUENCE_VERSION = 'SV'
+    PROTEIN_NAME = "PN"
+    ORGANISM_NAME = "OS"
+    ORGANISM_ID = "OX"
+    GENE_NAME = "GN"
+    PROTEIN_EXISTENCE = "PE"
+    SEQUENCE_VERSION = "SV"
 
 
 @dataclass
@@ -62,16 +73,16 @@ class FastaEntry:
     :type protein_sequence: str
     """
 
-    db: str = ''
-    unique_identifier: str = ''
-    entry_name: str = ''
+    db: str = ""
+    unique_identifier: str = ""
+    entry_name: str = ""
     protein_name: str = None
     organism_name: str = None
     organism_identifier: str = None
     gene_name: str = None
     protein_existence: str = None
     sequence_version: str = None
-    protein_sequence: str = ''
+    protein_sequence: str = ""
 
     def serialize(self) -> str:
         """
@@ -82,22 +93,25 @@ class FastaEntry:
         """
 
         optional_fields = [
-            (f' {FastaFields.PROTEIN_NAME.value}=', self.protein_name),
-            (f' {FastaFields.ORGANISM_NAME.value}=', self.organism_name),
-            (f' {FastaFields.ORGANISM_ID.value}=', self.organism_identifier),
-            (f' {FastaFields.GENE_NAME.value}=', self.gene_name),
-            (f' {FastaFields.PROTEIN_EXISTENCE.value}=', self.protein_existence),
-            (f' {FastaFields.SEQUENCE_VERSION.value}=', self.sequence_version)
+            (f" {FastaFields.PROTEIN_NAME.value}=", self.protein_name),
+            (f" {FastaFields.ORGANISM_NAME.value}=", self.organism_name),
+            (f" {FastaFields.ORGANISM_ID.value}=", self.organism_identifier),
+            (f" {FastaFields.GENE_NAME.value}=", self.gene_name),
+            (f" {FastaFields.PROTEIN_EXISTENCE.value}=", self.protein_existence),
+            (f" {FastaFields.SEQUENCE_VERSION.value}=", self.sequence_version),
         ]
 
-        fasta_header = f'>{self.db}|{self.unique_identifier}|{self.entry_name}'
-        fasta_header += ''.join(f"{key}{value}" for key, value in optional_fields if value)
+        fasta_header = f">{self.db}|{self.unique_identifier}|{self.entry_name}"
+        fasta_header += "".join(
+            f"{key}{value}" for key, value in optional_fields if value
+        )
 
         return f"{fasta_header}\n{self.protein_sequence}\n"
 
 
-def fasta_to_entries(data: Union[str, TextIOWrapper, StringIO, TextIO], skip_error: bool = False) -> \
-        Generator[FastaEntry, None, None]:
+def fasta_to_entries(
+    data: Union[str, TextIOWrapper, StringIO, TextIO], skip_error: bool = False
+) -> Generator[FastaEntry, None, None]:
     """
     Converts FASTA content to a list of FastaEntry objects.
 
@@ -159,7 +173,10 @@ def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
     return fasta_df
 
 
-def to_df(data: Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntry]], skip_error: bool = False) -> pd.DataFrame:
+def to_df(
+    data: Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntry]],
+    skip_error: bool = False,
+) -> pd.DataFrame:
     """
     Converts a FASTA input or list of FastaEntry objects to a pandas DataFrame.
 
@@ -193,7 +210,9 @@ def df_to_entries(df: pd.DataFrame) -> List[FastaEntry]:
     return entries
 
 
-def entries_to_fasta(entries: Iterable[FastaEntry], output_file: str = None) -> Union[StringIO, None]:
+def entries_to_fasta(
+    entries: Iterable[FastaEntry], output_file: str = None
+) -> Union[StringIO, None]:
     """
     Converts a list of FastaEntry objects to a StringIO object or file containing the fasta content.
 
@@ -213,14 +232,16 @@ def entries_to_fasta(entries: Iterable[FastaEntry], output_file: str = None) -> 
     fasta_string.seek(0)
 
     if output_file is not None:
-        with open(file=output_file, mode='w', encoding='UTF-8') as f:
+        with open(file=output_file, mode="w", encoding="UTF-8") as f:
             f.write(fasta_string.getvalue())
         return None
 
     return fasta_string
 
 
-def to_fasta(data: Union[pd.DataFrame, Iterable[FastaEntry]], output_file: str = None) -> Union[StringIO, None]:
+def to_fasta(
+    data: Union[pd.DataFrame, Iterable[FastaEntry]], output_file: str = None
+) -> Union[StringIO, None]:
     """
     Converts a fasta dataframe or list of FastaEntries to a StringIO object or file containing the fasta content.
 
@@ -248,7 +269,7 @@ def _extract_fasta_header_elements(entry_str: str) -> List[str]:
     :rtype: List[str]
     """
 
-    line_elements = entry_str.rstrip().replace('>', '').split(" ")
+    line_elements = entry_str.rstrip().replace(">", "").split(" ")
     return line_elements
 
 
@@ -262,7 +283,7 @@ def _extract_initial_info(line_elements: List[str]) -> Tuple[str, str, str]:
     :rtype: Tuple[str, str, str]
     """
 
-    first_element_parts = line_elements[0].split('|')
+    first_element_parts = line_elements[0].split("|")
 
     if len(first_element_parts) == 3:
         db = first_element_parts[0]
@@ -271,15 +292,15 @@ def _extract_initial_info(line_elements: List[str]) -> Tuple[str, str, str]:
         return db, unique_identifier, entry_name
 
     if len(first_element_parts) >= 1:
-        # write warning 
+        # write warning
 
-        Warning(f"Invalid fasta header format: {line_elements[0]}, using only the first part as unique identifier.")
+        warnings.warn(
+            f"Invalid fasta header format: {line_elements[0]}, using only the first part as unique identifier."
+        )
 
         return None, line_elements[0], None
-    
+
     raise ValueError(f"Invalid fasta header format: {line_elements[0]}")
-
-
 
 
 def _process_line_elements(line_elements: List[str]) -> Dict[str, List[str]]:
@@ -301,12 +322,16 @@ def _process_line_elements(line_elements: List[str]) -> Dict[str, List[str]]:
 
     for elem in line_elements[1:]:
 
-        if '=' in elem:
-            current_state = elem[:2]  # Assuming that the field keys are always two characters long
+        if "=" in elem:
+            current_state = elem[
+                :2
+            ]  # Assuming that the field keys are always two characters long
             elem = elem[3:]
 
         if current_state not in {field.value for field in FastaFields}:
-            raise ValueError(f"Unexpected element: {current_state} encountered. Line: {line_elements}")
+            raise ValueError(
+                f"Unexpected element: {current_state} encountered. Line: {line_elements}"
+            )
 
         info.setdefault(current_state, []).append(elem)
 
@@ -328,7 +353,7 @@ def _fasta_str_to_entry(fasta_str: str) -> FastaEntry:
     info = _process_line_elements(line_elements)
 
     def _join_list_values(data: Dict[str, List[str]]) -> Dict[str, str]:
-        return {k: ' '.join(v) if v else None for k, v in data.items()}
+        return {k: " ".join(v) if v else None for k, v in data.items()}
 
     joined_info = _join_list_values(info)
 
@@ -336,10 +361,10 @@ def _fasta_str_to_entry(fasta_str: str) -> FastaEntry:
         db=db,
         unique_identifier=unique_identifier,
         entry_name=entry_name,
-        protein_name=joined_info.get('PN'),
-        organism_name=joined_info.get('OS'),
-        organism_identifier=joined_info.get('OX'),
-        gene_name=joined_info.get('GN'),
-        protein_existence=joined_info.get('PE'),
-        sequence_version=joined_info.get('SV')
+        protein_name=joined_info.get("PN"),
+        organism_name=joined_info.get("OS"),
+        organism_identifier=joined_info.get("OX"),
+        gene_name=joined_info.get("GN"),
+        protein_existence=joined_info.get("PE"),
+        sequence_version=joined_info.get("SV"),
     )

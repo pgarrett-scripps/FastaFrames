@@ -11,16 +11,13 @@ fasta_df = to_df(data=FASTA_FILE)
 decoy_df = fasta_df.copy(deep=True)
 
 # Append "decoy_" to the start of db
-decoy_df['db'] = 'decoy_' + decoy_df['db']
+decoy_df["db"] = "decoy_" + decoy_df["db"]
 
 # Reverse the protein sequences
-decoy_df['protein_sequence'] = decoy_df['protein_sequence'].str[::-1]
+decoy_df["protein_sequence"] = decoy_df["protein_sequence"].str[::-1]
 
 # Concatenate the two dataframes
 df = pd.concat([fasta_df, decoy_df])
 
 # write df to FASTA file
-to_fasta(df, 'decoy.fasta')
-
-
-
+to_fasta(df, "decoy.fasta")

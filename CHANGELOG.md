@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1]
+- bugs
+- streamlit community cloud app
+- black formatting
+- updated reqs with pipreqs
+
+## [1.2.1]
+- fix for malformed fastas (warning instead of error)
+
 ## [1.0.0]
 
 ## Added
