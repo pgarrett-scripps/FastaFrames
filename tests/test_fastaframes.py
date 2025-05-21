@@ -226,7 +226,7 @@ def test_to_fasta_from_file():
 
     assert result2 == expected
 
-def test_skip_error():
+def test_bad_fasta():
     bad_fasta_content = \
         '>sp|A0A087X1C5||CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1' \
         '\nMGLEALVPLAMIVAIFLLLVDLMHR\nHQRWAARYPPGPLPLPGLGNLLH\nVDFQNTPYCFDQ\n'
@@ -242,5 +242,52 @@ def test_skip_error():
     except ValueError:
         assert False
 
+    expected = FastaEntry(
+            db=None,
+            unique_identifier='sp|A0A087X1C5||CP2D7_HUMAN',
+            entry_name=None,
+            protein_name='Putative cytochrome P450 2D7',
+            organism_name='Homo sapiens',
+            organism_identifier='9606',
+            gene_name='CYP2D7',
+            protein_existence='5',
+            sequence_version='1',
+            protein_sequence='MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ'
+        )
+
     assert len(result) == 1
 
+    assert result[0] == expected
+
+def test_bad_fasta2():
+    bad_fasta_content = \
+        '>sp|A0A087X1C5||CP2D7_HUMAN\n' \
+        'MGLEALVPLAMIVAIFLLLVDLMHR\nHQRWAARYPPGPLPLPGLGNLLH\nVDFQNTPYCFDQ\n'
+    file_input = StringIO(bad_fasta_content)
+    try:
+        result = list(fasta_to_entries(file_input))
+    except ValueError:
+        assert True
+
+    file_input = StringIO(bad_fasta_content)
+    try:
+        result = list(fasta_to_entries(file_input, skip_error=True))
+    except ValueError:
+        assert False
+
+    expected = FastaEntry(
+            db=None,
+            unique_identifier='sp|A0A087X1C5||CP2D7_HUMAN',
+            entry_name=None,
+            protein_name=None,
+            organism_name=None,
+            organism_identifier=None,
+            gene_name=None,
+            protein_existence=None,
+            sequence_version=None,
+            protein_sequence='MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ'
+        )
+
+    assert len(result) == 1
+
+    assert result[0] == expected
