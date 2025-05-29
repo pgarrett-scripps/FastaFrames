@@ -84,6 +84,18 @@ class FastaEntry:
     sequence_version: str = None
     protein_sequence: str = ""
 
+    @property
+    def protein_id(self) -> str:
+        """
+        Constructs a protein identifier from the db, unique_identifier, and entry_name.
+
+        :return: Protein identifier string.
+        :rtype: str
+        """
+        elems = [self.db, self.unique_identifier, self.entry_name]
+        elems = [e for e in elems if e is not None and e != '' and e != 'None']
+        return "|".join(elems)
+
     def serialize(self) -> str:
         """
         Serializes the FastaEntry object to a FASTA string.
@@ -107,6 +119,18 @@ class FastaEntry:
         )
 
         return f"{fasta_header}\n{self.protein_sequence}\n"
+    
+    # function to make dict
+    def to_dict(self) -> Dict[str, str]:
+        """
+        Converts the FastaEntry object to a dictionary.
+
+        :return: Dictionary representation of the FastaEntry object.
+        :rtype: Dict[str, str]
+        """
+        d = asdict(self)
+        d['protein_id'] = self.protein_id
+        return d
 
 
 def fasta_to_entries(
@@ -166,10 +190,7 @@ def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
     :rtype: pd.DataFrame
     """
 
-    fasta_df = pd.DataFrame([asdict(entry) for entry in entries])
-
-    for col_name in fasta_df:
-        fasta_df[col_name] = convert_to_best_datatype(fasta_df[col_name])
+    fasta_df = pd.DataFrame([entry.to_dict() for entry in entries])
     return fasta_df
 
 

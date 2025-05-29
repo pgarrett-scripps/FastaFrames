@@ -1,22 +1,31 @@
 import streamlit as st  # pip install streamlit
 from src.fastaframes.fastaframes import to_df
 
+st.set_page_config(
+    page_title="FASTA to DataFrame",
+    page_icon=":dna:",
+)
+
+st.title("FASTA to DataFrame Converter")
+st.caption("Upload a FASTA file and convert it to a Pandas DataFrame with structured metadata. FastaFrames parses UniProt-formatted FASTA files and extracts fields like database source, identifiers, protein names, organism details, gene names, and protein sequences into organized columns.")
+
+
 fasta = st.file_uploader("Upload FASTA file", type=".fasta")
-
-
-def get_protein_id(row):
-
-    elems = [row['db'], row['unique_identifier'], row['entry_name']]
-    elems = [e for e in elems if e is not None and e != 'None']
-    return "|".join(elems)
 
 if fasta:
     df = to_df(fasta)
 
-    # 
-    df['protein_id'] = df.apply(get_protein_id, axis=1)
-
     # display the dataframe
     st.dataframe(df)
-
     
+    # Show download option
+    st.download_button(
+        label="Download as CSV",
+        data=df.to_csv().encode('utf-8'),
+        file_name=f'{fasta.name}.csv',
+        on_click='ignore',
+        use_container_width=True,
+        help="Download the DataFrame as a CSV file.",
+        mime='text/csv',
+    )
+
