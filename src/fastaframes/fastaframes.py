@@ -10,7 +10,7 @@ import warnings
 
 import pandas as pd
 
-from .util import get_lines, convert_to_best_datatype
+from .util import get_lines
 
 COLS = [
     "db",
@@ -93,7 +93,7 @@ class FastaEntry:
         :rtype: str
         """
         elems = [self.db, self.unique_identifier, self.entry_name]
-        elems = [e for e in elems if e is not None and e != '' and e != 'None']
+        elems = [e for e in elems if e is not None and e != "" and e != "None"]
         return "|".join(elems)
 
     def serialize(self) -> str:
@@ -119,7 +119,7 @@ class FastaEntry:
         )
 
         return f"{fasta_header}\n{self.protein_sequence}\n"
-    
+
     # function to make dict
     def to_dict(self) -> Dict[str, str]:
         """
@@ -129,7 +129,7 @@ class FastaEntry:
         :rtype: Dict[str, str]
         """
         d = asdict(self)
-        d['protein_id'] = self.protein_id
+        d["protein_id"] = self.protein_id
         return d
 
 

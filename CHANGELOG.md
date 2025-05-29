@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2]
+- fixed None being cast to 'None' in dataframe
+- added protein_id col to df
+- removed convert_to_best_datatype
+
 ## [1.2.1]
 - bugs
 - streamlit community cloud app

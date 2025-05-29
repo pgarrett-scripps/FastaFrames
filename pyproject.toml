@@ -21,16 +21,9 @@ dependencies = [
     "pandas",
 ]
 keywords = [
-    "Fasta file",
-    "Pandas DataFrame",
-    "Data conversion",
-    "Python module",
-    "FASTA format",
-    "Reading files",
-    "Writing files",
-    "Dataclass",
-    "Bioinformatics",
-    "Scientific computing"
+    "Fasta",
+    "Pandas",
+    "DataFrame"
 ]
 
 [tool.setuptools]

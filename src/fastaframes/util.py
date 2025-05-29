@@ -77,24 +77,3 @@ def best_datatype_for_list(values: List[Any]) -> Union[type, None]:
         except (ValueError, TypeError):
             continue
     return None
-
-
-def convert_to_best_datatype(values: List[Any]) -> List[Any]:
-    """
-    Tries to convert a list of values to the most specific datatype possible: int, float, or str, in that order.
-
-    Args:
-        values (List[Any]): A list of values to be converted.
-
-    Returns:
-        List[Any]: A list of converted values.
-
-    Raises:
-        ValueError: If unable to convert values to any datatype.
-    """
-    best_datatype = best_datatype_for_list(values)
-
-    if best_datatype is None:
-        raise ValueError("Unable to convert values to any datatype")
-
-    return [best_datatype(value) for value in values]

@@ -4,7 +4,7 @@ from io import StringIO, TextIOWrapper
 import pandas as pd
 
 from fastaframes import fasta_to_entries, FastaEntry, to_df, df_to_entries, to_fasta
-from fastaframes.util import convert_to_best_datatype, get_lines
+from fastaframes.util import get_lines
 
 
 def tests_input_formats():
@@ -92,7 +92,7 @@ def test_from_fasta():
         '\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n'
     file_input = StringIO(fasta_content)
     result = to_df(file_input)
-    expected = pd.DataFrame([asdict(FastaEntry(
+    expected = pd.DataFrame([FastaEntry(
         db='sp',
         unique_identifier='A0A087X1C5',
         entry_name='CP2D7_HUMAN',
@@ -103,10 +103,7 @@ def test_from_fasta():
         protein_existence='5',
         sequence_version='1',
         protein_sequence='MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ'
-    ))])
-
-    for col_name in expected:
-        expected[col_name] = convert_to_best_datatype(expected[col_name])
+    ).to_dict()])
 
     pd.testing.assert_frame_equal(result, expected)
 
