@@ -9,6 +9,7 @@ st.set_page_config(
 st.title("FASTA to DataFrame Converter")
 st.caption("Upload a FASTA file and convert it to a Pandas DataFrame with structured metadata. FastaFrames parses UniProt-formatted FASTA files and extracts fields like database source, identifiers, protein names, organism details, gene names, and protein sequences into organized columns.")
 
+example_fasta = "examples/example.fasta"
 
 fasta = st.file_uploader("Upload FASTA file", type=".fasta")
 
