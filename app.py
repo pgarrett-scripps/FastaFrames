@@ -1,5 +1,6 @@
 import streamlit as st  # pip install streamlit
 from src.fastaframes.fastaframes import to_df
+import requests
 
 st.set_page_config(
     page_title="FASTA to DataFrame",
@@ -7,9 +8,11 @@ st.set_page_config(
 )
 
 st.title("FASTA to DataFrame Converter")
-st.caption("Upload a FASTA file and convert it to a Pandas DataFrame with structured metadata. FastaFrames parses UniProt-formatted FASTA files and extracts fields like database source, identifiers, protein names, organism details, gene names, and protein sequences into organized columns.")
-
-example_fasta = "examples/example.fasta"
+example_fasta = "https://github.com/pgarrett-scripps/FastaFrames/blob/main/example.fasta"
+st.caption("Upload a FASTA file and convert it to a Pandas DataFrame with structured metadata. FastaFrames parses " \
+"UniProt-formatted FASTA files and extracts fields like database source, identifiers, protein names, organism details, " \
+"gene names, and protein sequences into organized columns. Try this example: " \
+f"[example.fasta]({example_fasta})")
 
 fasta = st.file_uploader("Upload FASTA file", type=".fasta")
 
