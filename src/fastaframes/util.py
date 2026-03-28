@@ -1,10 +1,11 @@
 """
-This module provides some simple utility functions for filterframes
+This module provides utility functions for fastaframes.
 """
 
 import os
-from io import TextIOWrapper, StringIO
-from typing import Union, List, TextIO, Any, Generator
+from collections.abc import Generator
+from io import StringIO, TextIOWrapper
+from typing import TextIO
 
 
 def read_lines_from_text_io(file_input: TextIO) -> Generator[str, None, None]:
@@ -16,7 +17,7 @@ def read_lines_from_text_io(file_input: TextIO) -> Generator[str, None, None]:
 
 def read_lines_from_file(file_path: str) -> Generator[str, None, None]:
     """Read lines from a file."""
-    with open(file=file_path, mode="r", encoding="UTF-8") as file:
+    with open(file=file_path, encoding="UTF-8") as file:
         for line in file:
             yield line.rstrip("\n")
 
@@ -28,7 +29,7 @@ def read_lines_from_string(s: str) -> Generator[str, None, None]:
 
 
 def get_lines(
-    file_input: Union[str, TextIOWrapper, StringIO, TextIO],
+    file_input: str | TextIOWrapper | StringIO | TextIO,
 ) -> Generator[str, None, None]:
     """
     Retrieve lines from a file or string input.
@@ -37,10 +38,10 @@ def get_lines(
     a TextIOWrapper, or a StringIO object.
 
     Args:
-        file_input (Union[str, TextIOWrapper, StringIO, TextIO]): The input source.
+        file_input: The input source.
 
     Returns:
-        generator: A generator that yields lines from the input source.
+        A generator that yields lines from the input source.
 
     Raises:
         ValueError: If the input type is not supported.
@@ -58,22 +59,3 @@ def get_lines(
                 yield line.decode("UTF-8").rstrip("\n")
             else:
                 yield line.rstrip("\n")
-
-
-def best_datatype_for_list(values: List[Any]) -> Union[type, None]:
-    """
-    Determines the best data type that can be applied to all values in the list.
-
-    Args:
-        values (List[Any]): A list of values.
-
-    Returns:
-        type: The best data type for the list, or None if no common type is found.
-    """
-    for datatype in [int, float, str]:
-        try:
-            _ = [datatype(value) for value in values]
-            return datatype
-        except (ValueError, TypeError):
-            continue
-    return None

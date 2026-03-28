@@ -1,12 +1,13 @@
 """
-This module implements the core functions of filterframes.
+This module implements the core functions of fastaframes.
 """
 
-from dataclasses import dataclass, asdict
-from io import TextIOWrapper, StringIO
-from typing import Union, TextIO, List, Dict, Tuple, Generator, Iterable
-from enum import Enum
 import warnings
+from collections.abc import Generator, Iterable
+from dataclasses import asdict, dataclass
+from enum import Enum
+from io import StringIO, TextIOWrapper
+from typing import TextIO
 
 import pandas as pd
 
@@ -52,36 +53,26 @@ class FastaEntry:
     A dataclass representing a FASTA entry.
 
     :param db: Database source. Default is empty string.
-    :type db: str
     :param unique_identifier: Unique identifier for the entry. Default is empty string.
-    :type unique_identifier: str
     :param entry_name: Name of the entry. Default is empty string.
-    :type entry_name: str
     :param protein_name: Name of the protein. Default is None.
-    :type protein_name: str, optional
     :param organism_name: Name of the organism. Default is None.
-    :type organism_name: str, optional
     :param organism_identifier: Identifier for the organism. Default is None.
-    :type organism_identifier: str, optional
     :param gene_name: Name of the gene. Default is None.
-    :type gene_name: str, optional
     :param protein_existence: Existence status of the protein. Default is None.
-    :type protein_existence: str, optional
     :param sequence_version: Version of the sequence. Default is None.
-    :type sequence_version: str, optional
     :param protein_sequence: Sequence of the protein. Default is empty string.
-    :type protein_sequence: str
     """
 
-    db: str = ""
+    db: str | None = ""
     unique_identifier: str = ""
-    entry_name: str = ""
-    protein_name: str = None
-    organism_name: str = None
-    organism_identifier: str = None
-    gene_name: str = None
-    protein_existence: str = None
-    sequence_version: str = None
+    entry_name: str | None = ""
+    protein_name: str | None = None
+    organism_name: str | None = None
+    organism_identifier: str | None = None
+    gene_name: str | None = None
+    protein_existence: str | None = None
+    sequence_version: str | None = None
     protein_sequence: str = ""
 
     @property
@@ -114,19 +105,16 @@ class FastaEntry:
         ]
 
         fasta_header = f">{self.db}|{self.unique_identifier}|{self.entry_name}"
-        fasta_header += "".join(
-            f"{key}{value}" for key, value in optional_fields if value
-        )
+        fasta_header += "".join(f"{key}{value}" for key, value in optional_fields if value)
 
         return f"{fasta_header}\n{self.protein_sequence}\n"
 
-    # function to make dict
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str | None]:
         """
         Converts the FastaEntry object to a dictionary.
 
         :return: Dictionary representation of the FastaEntry object.
-        :rtype: Dict[str, str]
+        :rtype: dict[str, str | None]
         """
         d = asdict(self)
         d["protein_id"] = self.protein_id
@@ -134,13 +122,13 @@ class FastaEntry:
 
 
 def fasta_to_entries(
-    data: Union[str, TextIOWrapper, StringIO, TextIO], skip_error: bool = False
+    data: str | TextIOWrapper | StringIO | TextIO, skip_error: bool = False
 ) -> Generator[FastaEntry, None, None]:
     """
     Converts FASTA content to a list of FastaEntry objects.
 
     :param data: FASTA content or a file-like object containing FASTA content.
-    :type data: Union[str, TextIOWrapper, StringIO, TextIO]
+    :type data: str | TextIOWrapper | StringIO | TextIO
     :param skip_error: If True, skips invalid FASTA entries instead of raising an error.
     :type skip_error: bool
 
@@ -166,11 +154,11 @@ def fasta_to_entries(
 
             try:
                 current_entry = _fasta_str_to_entry(line)
-            except ValueError as e:
+            except ValueError:
                 if skip_error:
                     current_entry = None
                     continue
-                raise e
+                raise
 
         elif current_entry:
             current_entry.protein_sequence += line
@@ -184,7 +172,7 @@ def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
     Converts a list of FastaEntry objects to a pandas DataFrame.
 
     :param entries: List of FastaEntry objects.
-    :type entries: List[FastaEntry]
+    :type entries: Iterable[FastaEntry]
 
     :return: A pandas DataFrame representing the FastaEntry objects.
     :rtype: pd.DataFrame
@@ -195,14 +183,14 @@ def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
 
 
 def to_df(
-    data: Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntry]],
+    data: str | TextIOWrapper | StringIO | TextIO | list[FastaEntry],
     skip_error: bool = False,
 ) -> pd.DataFrame:
     """
     Converts a FASTA input or list of FastaEntry objects to a pandas DataFrame.
 
     :param data: FASTA content, a file-like object containing FASTA content, or a list of FastaEntry objects.
-    :type data: Union[str, TextIOWrapper, StringIO, TextIO, List[FastaEntry]]
+    :type data: str | TextIOWrapper | StringIO | TextIO | list[FastaEntry]
     :param skip_error: If True, skips invalid FASTA entries instead of raising an error.
     :type skip_error: bool
 
@@ -211,12 +199,12 @@ def to_df(
     """
 
     if isinstance(data, list):
-        return entries_to_df(data)
+        return entries_to_df(data)  # ty: ignore[invalid-argument-type]
 
     return entries_to_df(fasta_to_entries(data, skip_error))
 
 
-def df_to_entries(df: pd.DataFrame) -> List[FastaEntry]:
+def df_to_entries(df: pd.DataFrame) -> list[FastaEntry]:
     """
     Converts a fasta dataframe to a list of FastaEntry objects.
 
@@ -224,26 +212,24 @@ def df_to_entries(df: pd.DataFrame) -> List[FastaEntry]:
     :type df: pd.DataFrame
 
     :return: List of FastaEntry objects.
-    :rtype: List[FastaEntry]
+    :rtype: list[FastaEntry]
     """
 
     entries = [FastaEntry(**row.to_dict()) for _, row in df[COLS].iterrows()]
     return entries
 
 
-def entries_to_fasta(
-    entries: Iterable[FastaEntry], output_file: str = None
-) -> Union[StringIO, None]:
+def entries_to_fasta(entries: Iterable[FastaEntry], output_file: str | None = None) -> StringIO | None:
     """
     Converts a list of FastaEntry objects to a StringIO object or file containing the fasta content.
 
     :param entries: The list containing FastaEntry objects.
     :type entries: Iterable[FastaEntry]
     :param output_file: The path to the output file. If None, the function will return a StringIO.
-    :type output_file: str, optional
+    :type output_file: str | None
 
     :return: A StringIO object containing the fasta content or None if an output file is provided.
-    :rtype: Union[StringIO, None]
+    :rtype: StringIO | None
     """
 
     fasta_string = StringIO()
@@ -260,18 +246,16 @@ def entries_to_fasta(
     return fasta_string
 
 
-def to_fasta(
-    data: Union[pd.DataFrame, Iterable[FastaEntry]], output_file: str = None
-) -> Union[StringIO, None]:
+def to_fasta(data: pd.DataFrame | Iterable[FastaEntry], output_file: str | None = None) -> StringIO | None:
     """
     Converts a fasta dataframe or list of FastaEntries to a StringIO object or file containing the fasta content.
 
     :param data: The fasta dataframe or a list of FastaEntry objects.
-    :type data: Union[pd.DataFrame, Iterable[FastaEntry]]
+    :type data: pd.DataFrame | Iterable[FastaEntry]
     :param output_file: The path to the output file. If None, the function will return a StringIO.
-    :type output_file: str, optional
+    :type output_file: str | None
     :return: A StringIO object containing the fasta content or None if an output file is provided.
-    :rtype: Union[StringIO, None]
+    :rtype: StringIO | None
     """
 
     if isinstance(data, pd.DataFrame):
@@ -280,28 +264,28 @@ def to_fasta(
     return entries_to_fasta(data, output_file)
 
 
-def _extract_fasta_header_elements(entry_str: str) -> List[str]:
+def _extract_fasta_header_elements(entry_str: str) -> list[str]:
     """
     Extracts the elements from the header line of a fasta entry.
 
     :param entry_str: The header line of a fasta entry.
     :type entry_str: str
     :return: List of elements extracted from the header line.
-    :rtype: List[str]
+    :rtype: list[str]
     """
 
     line_elements = entry_str.rstrip().replace(">", "").split(" ")
     return line_elements
 
 
-def _extract_initial_info(line_elements: List[str]) -> Tuple[str, str, str]:
+def _extract_initial_info(line_elements: list[str]) -> tuple[str | None, str, str | None]:
     """
     Extracts the initial information, such as database, unique identifier, and entry name from the list of elements.
 
     :param line_elements: List of elements extracted from the header line of a fasta entry.
-    :type line_elements: List[str]
+    :type line_elements: list[str]
     :return: Tuple containing database, unique identifier, and entry name.
-    :rtype: Tuple[str, str, str]
+    :rtype: tuple[str | None, str, str | None]
     """
 
     first_element_parts = line_elements[0].split("|")
@@ -313,10 +297,9 @@ def _extract_initial_info(line_elements: List[str]) -> Tuple[str, str, str]:
         return db, unique_identifier, entry_name
 
     if len(first_element_parts) >= 1:
-        # write warning
-
         warnings.warn(
-            f"Invalid fasta header format: {line_elements[0]}, using only the first part as unique identifier."
+            f"Invalid fasta header format: {line_elements[0]}, using only the first part as unique identifier.",
+            stacklevel=2,
         )
 
         return None, line_elements[0], None
@@ -324,7 +307,7 @@ def _extract_initial_info(line_elements: List[str]) -> Tuple[str, str, str]:
     raise ValueError(f"Invalid fasta header format: {line_elements[0]}")
 
 
-def _process_line_elements(line_elements: List[str]) -> Dict[str, List[str]]:
+def _process_line_elements(line_elements: list[str]) -> dict[str, list[str]]:
     """
     Processes the list of line elements and groups them into a dictionary.
 
@@ -333,26 +316,21 @@ def _process_line_elements(line_elements: List[str]) -> Dict[str, List[str]]:
     specified by the XX= notation, and can be parsed accordingly.
 
     :param line_elements: List of elements extracted from the header line of a fasta entry.
-    :type line_elements: List[str]
+    :type line_elements: list[str]
     :return: Dictionary containing grouped elements.
-    :rtype: Dict[str, List[str]]
+    :rtype: dict[str, list[str]]
     """
 
-    info = {}
+    info: dict[str, list[str]] = {}
     current_state = FastaFields.PROTEIN_NAME.value
 
     for elem in line_elements[1:]:
-
         if "=" in elem:
-            current_state = elem[
-                :2
-            ]  # Assuming that the field keys are always two characters long
+            current_state = elem[:2]  # Assuming that the field keys are always two characters long
             elem = elem[3:]
 
         if current_state not in {field.value for field in FastaFields}:
-            raise ValueError(
-                f"Unexpected element: {current_state} encountered. Line: {line_elements}"
-            )
+            raise ValueError(f"Unexpected element: {current_state} encountered. Line: {line_elements}")
 
         info.setdefault(current_state, []).append(elem)
 
@@ -373,7 +351,7 @@ def _fasta_str_to_entry(fasta_str: str) -> FastaEntry:
     db, unique_identifier, entry_name = _extract_initial_info(line_elements)
     info = _process_line_elements(line_elements)
 
-    def _join_list_values(data: Dict[str, List[str]]) -> Dict[str, str]:
+    def _join_list_values(data: dict[str, list[str]]) -> dict[str, str | None]:
         return {k: " ".join(v) if v else None for k, v in data.items()}
 
     joined_info = _join_list_values(info)

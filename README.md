@@ -1,52 +1,120 @@
-![example workflow](https://github.com/pgarrett-scripps/FastaFrames/actions/workflows/python-package.yml/badge.svg)
-![example workflow](https://github.com/pgarrett-scripps/FastaFrames/actions/workflows/pylint.yml/badge.svg)
+![CI](https://github.com/pgarrett-scripps/FastaFrames/actions/workflows/ci.yml/badge.svg)
+[![PyPI](https://img.shields.io/pypi/v/fastaframes)](https://pypi.org/project/fastaframes/)
+[![Python](https://img.shields.io/pypi/pyversions/fastaframes)](https://pypi.org/project/fastaframes/)
 
 # FastaFrames
-FastaFrames is a python package to convert between FASTA files and pandas DataFrames.
 
-## Usage
+Convert between UniProt FASTA files and pandas DataFrames.
 
-To install fastaframes use pip:
+## Installation
 
 ```sh
 pip install fastaframes
 ```
 
-### Reading a FASTA file
+## Quick Start
+
+### Read a FASTA file into a DataFrame
+
 ```python
 from fastaframes import to_df
 
-fasta_df = to_df(data='example.fasta')
+df = to_df("proteins.fasta")
+print(df.head())
 ```
 
-### Writing a FASTA file
+### Write a DataFrame back to FASTA
+
 ```python
 from fastaframes import to_fasta
 
-to_fasta(data=fasta_df, output_file='output.fasta')
+to_fasta(df, output_file="output.fasta")
 ```
 
-# Columns:
-- **db**: Database from which the sequence was retrieved. db is 'sp' for UniProtKB/Swiss-Prot and 'tr' for UniProtKB/TrEMBL.
-- **unique_identifier**: The primary accession number of the UniProtKB entry.
-- **entry_name**: The entry name of the UniProtKB entry.
-- **protein_name**: The recommended name of the UniProtKB entry as annotated in the RecName field. For UniProtKB/TrEMBL entries without a RecName field, the SubName field is used. In case of multiple SubNames, the first one is used. The 'precursor' attribute is excluded, 'Fragment' is included with the name if applicable.
-- **organism_name**:  The scientific name of the organism of the UniProtKB entry.
-- **organism_identifier**: The unique identifier of the source organism, assigned by the NCBI.
-- **gene_name**: The first gene name of the UniProtKB entry. If there is no gene name, OrderedLocusName or ORFname, the GN field is not listed.
-- **protein_existence**: The numerical value describing the evidence for the existence of the protein.
-- **sequence_version**: The version number of the sequence.
-- **protein_sequence**: The protein amino acid sequence.
+### Work with individual entries
 
-## Example FASTA file:
+```python
+from fastaframes import fasta_to_entries, entries_to_fasta
+
+for entry in fasta_to_entries("proteins.fasta"):
+    print(entry.unique_identifier, entry.protein_name)
+
+# Filter and write back
+entries = [e for e in fasta_to_entries("proteins.fasta") if e.organism_name == "Homo sapiens"]
+entries_to_fasta(entries, output_file="human_only.fasta")
+```
+
+### Multiple input formats
+
+```python
+from io import StringIO
+from fastaframes import to_df
+
+# From a file path
+df = to_df("proteins.fasta")
+
+# From a string
+df = to_df(">sp|P12345|EXAMPLE_HUMAN Example protein OS=Homo sapiens OX=9606\nMSEQUENCE\n")
+
+# From a file object
+with open("proteins.fasta") as f:
+    df = to_df(f)
+
+# From a StringIO
+df = to_df(StringIO(">sp|P12345|EXAMPLE_HUMAN\nMSEQUENCE\n"))
+```
+
+### Skip malformed entries
+
+```python
+from fastaframes import to_df
+
+df = to_df("messy_data.fasta", skip_error=True)
+```
+
+## DataFrame Columns
+
+Given this FASTA entry:
 
 ```
 >sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1
 MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ
 ```
 
-## Will produce the following:
+`to_df` produces:
 
-|   | db | unique_identifier | entry_name   | protein_name                                         | organism_name | organism_identifier | gene_name | protein_existence | sequence_version | protein_sequence                                       |
-|---|----|------------------|--------------|------------------------------------------------------|---------------|---------------------|-----------|-------------------|------------------|--------------------------------------------------------|
-| 0 | sp | A0A087X1C5       | CP2D7_HUMAN  | Putative cytochrome P450 2D7                         | Homo sapiens  | 9606.0              | CYP2D7    | 5.0               | 1.0              | MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ |
+| db | unique_identifier | entry_name  | protein_name                 | organism_name | organism_identifier | gene_name | protein_existence | sequence_version | protein_sequence                                                 |
+|----|-------------------|-------------|------------------------------|---------------|---------------------|-----------|-------------------|------------------|------------------------------------------------------------------|
+| sp | A0A087X1C5        | CP2D7_HUMAN | Putative cytochrome P450 2D7 | Homo sapiens  | 9606                | CYP2D7    | 5                 | 1                | MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ |
+
+Column descriptions (following the [UniProt FASTA header format](https://www.uniprot.org/help/fasta-headers)):
+
+| Column | Description |
+|--------|-------------|
+| `db` | Database source: `sp` (Swiss-Prot) or `tr` (TrEMBL) |
+| `unique_identifier` | Primary UniProtKB accession number |
+| `entry_name` | UniProtKB entry name |
+| `protein_name` | Recommended protein name (RecName or first SubName) |
+| `organism_name` | Scientific name of the source organism |
+| `organism_identifier` | NCBI taxonomy identifier |
+| `gene_name` | First gene name (if available) |
+| `protein_existence` | Numerical evidence code for protein existence |
+| `sequence_version` | Sequence version number |
+| `protein_sequence` | Amino acid sequence |
+
+## Development
+
+```sh
+pip install -e ".[dev]"
+```
+
+Common commands via [just](https://github.com/casey/just):
+
+```sh
+just check      # Run all checks (lint, typecheck, test)
+just lint       # Lint with ruff
+just fmt        # Format with ruff
+just typecheck  # Type check with ty
+just test       # Run tests
+just test -v    # Run tests verbosely
+```
