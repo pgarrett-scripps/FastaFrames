@@ -24,7 +24,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pandas>=2.0,<3",
+    "pandas",
 ]
 keywords = [
     "Fasta",
