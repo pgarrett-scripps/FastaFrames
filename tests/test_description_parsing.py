@@ -21,6 +21,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "1",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -36,6 +37,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "4",
                 "sequence_version": "2",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -51,6 +53,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "3",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -66,6 +69,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "5",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -81,6 +85,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "5",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -96,6 +101,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "4",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -111,6 +117,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "4",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -126,6 +133,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "4",
                 "sequence_version": "1",
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -141,6 +149,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": None,
                 "sequence_version": None,
                 "protein_sequence": "",
+                "additional_fields": {},
             },
         ),
         (
@@ -156,10 +165,27 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "protein_existence": "4",
                 "sequence_version": None,
                 "protein_sequence": "",
+                "additional_fields": {},
+            },
+        ),
+        (
+            ">sp|Q8I6R7|ACN2_ACAGO Some protein OS=Homo sapiens XT=custom_value",
+            {
+                "db": "sp",
+                "unique_identifier": "Q8I6R7",
+                "entry_name": "ACN2_ACAGO",
+                "protein_name": "Some protein",
+                "organism_name": "Homo sapiens",
+                "organism_identifier": None,
+                "gene_name": None,
+                "protein_existence": None,
+                "sequence_version": None,
+                "protein_sequence": "",
+                "additional_fields": {"XT": "custom_value"},
             },
         ),
     ],
 )
-def test_extract_fasta_info(fasta_entry: str, expected: dict[str, str | None]):
+def test_extract_fasta_info(fasta_entry: str, expected: dict[str, object]):
     result = asdict(_fasta_str_to_entry(fasta_entry))
     assert result == expected

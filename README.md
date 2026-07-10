@@ -72,6 +72,45 @@ from fastaframes import to_df
 df = to_df("messy_data.fasta", skip_error=True)
 ```
 
+### Wrap sequence lines
+
+```python
+from fastaframes import to_fasta
+
+# Wrap sequences at 60 characters (default is a single line per record)
+to_fasta(df, output_file="wrapped.fasta", max_sequence_length=60)
+```
+
+### Preserve non-standard header fields
+
+Any `KEY=value` field beyond the standard `PN`/`OS`/`OX`/`GN`/`PE`/`SV` is kept
+in `FastaEntry.additional_fields` and re-emitted on serialization.
+
+### Error handling
+
+All package errors derive from `FastaFramesError`. Malformed FASTA raises
+`FastaFormatError` (also a `ValueError`); unsupported inputs raise
+`InvalidInputError` (also a `TypeError`).
+
+```python
+from fastaframes import to_df, FastaFormatError
+
+try:
+    df = to_df("example.fasta")
+except FastaFormatError as err:
+    print(err.header, err.reason)
+```
+
+### Logging
+
+FastaFrames logs under the `fastaframes` logger and stays silent until you
+configure logging:
+
+```python
+import logging
+logging.getLogger("fastaframes").setLevel(logging.DEBUG)
+```
+
 ## DataFrame Columns
 
 Given this FASTA entry:

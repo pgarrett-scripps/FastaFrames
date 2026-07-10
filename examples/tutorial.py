@@ -26,6 +26,8 @@ cols = [
     "protein_existence",
     "sequence_version",
     "protein_sequence",
+    "additional_fields",
+    "protein_id",
 ]
 
 ids = fasta_df["unique_identifier"].tolist()

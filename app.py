@@ -1,6 +1,5 @@
 import streamlit as st  # pip install streamlit
-from src.fastaframes.fastaframes import to_df
-import requests
+from fastaframes import to_df
 
 st.set_page_config(
     page_title="FASTA to DataFrame",
