@@ -30,6 +30,14 @@ parsing and writing. The public API and DataFrame columns are unchanged.
   `protein_existence` or `sequence_version`, raises `fastatacular.FastaWriteError`
   (a `ValueError`); every entry is checked before anything is written.
 
+### Added
+- `raw_header` column and `FastaEntry.raw_header` field (default `""`): the
+  header as read. Unedited entries are written back byte for byte; an edited
+  column is changed in place in the original header, and a column set to None
+  or `""` removes that field. DataFrames without the column work as before;
+  `raw_header` is not compared by `FastaEntry.__eq__`. `to_df` output has this
+  one extra column.
+
 ### Changed
 - Header parsing and FASTA writing go through fastatacular; FastaFrames' own
   header parser is removed.
@@ -38,6 +46,14 @@ parsing and writing. The public API and DataFrame columns are unchanged.
 
 ### Fixed
 - UniProt files round-trip byte-identically through `to_df` -> `to_fasta`.
+- Leading whitespace before `>` is stripped from every line, as 1.4.0 did; an
+  indented header mid-file is no longer merged into the previous sequence.
+- A malformed `additional_fields` cell (e.g. `"{bad"`) raises `FastaFormatError`
+  naming the row instead of a bare `SyntaxError`.
+- An empty string in a field column (`gene_name=""`) is a missing value and is
+  not written as `GN=`.
+- A repeated header key keeps its first value (`OS=H OS=M` reads as `H`); the
+  unedited header is written back unchanged.
 - Missing values (NaN, None, `pd.NA`) are left out of written headers instead of
   being written as `nan` (`GN=nan`, `>nan|myid|nan`); integral floats from a
   column with gaps or a CSV round trip (`9606.0`) are written as `9606`.

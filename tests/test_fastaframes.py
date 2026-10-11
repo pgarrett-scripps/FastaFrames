@@ -110,6 +110,7 @@ def test_from_fasta():
                 protein_existence="5",
                 sequence_version="1",
                 protein_sequence="MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ",
+                raw_header=fasta_content.split("\n")[0][1:],
             ).to_dict()
         ]
     )

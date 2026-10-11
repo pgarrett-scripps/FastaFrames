@@ -28,13 +28,13 @@ from collections.abc import Generator, Iterable, Iterator, Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from io import StringIO
-from typing import Any
+from typing import IO, Any, cast
 
 import pandas as pd
 from fastatacular import FastaParseError, FastaReader, SequenceEntry, from_records, read_fasta, write_fasta
 
 from .exceptions import FastaFormatError
-from .util import as_source, get_lines
+from .util import LineReader, get_lines
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,10 @@ class FastaEntry:
     :param protein_sequence: The amino-acid sequence.
     :param additional_fields: Non-standard ``KEY=value`` header fields. Defaults to
         an empty dict.
+    :param raw_header: The header line as read (no ``>``), or ``""`` for an entry
+        built by hand. When set, writing keeps it byte for byte unless a field was
+        edited, and an edited field is changed in place in it. A field set to None
+        is removed from it. Not compared by ``==``.
     """
 
     db: str | None = ""
@@ -110,6 +114,7 @@ class FastaEntry:
     sequence_version: str | None = None
     protein_sequence: str = ""
     additional_fields: dict[str, str] = field(default_factory=dict)
+    raw_header: str = field(default="", compare=False)
 
     @property
     def protein_id(self) -> str:
@@ -182,16 +187,19 @@ def _is_missing(value: object) -> bool:
 
 
 def _text(value: object) -> str | None:
-    """A str for a cell value: missing -> None, ``9606.0`` -> ``"9606"``."""
-    if _is_missing(value):
+    """A str for a cell value: missing or ``""`` -> None, ``9606.0`` -> ``"9606"``."""
+    if _is_missing(value) or value == "":
         return None
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value)
 
 
-def _fields(value: object) -> dict[str, str]:
-    """``additional_fields`` from a dict, its ``str()`` (a CSV round trip), or ``KEY=value`` text."""
+def _fields(value: object, where: str) -> dict[str, str]:
+    """``additional_fields`` from a dict, its ``str()`` (a CSV round trip), or ``KEY=value`` text.
+
+    :raises FastaFormatError: If a string cell is neither; ``where`` names the row or entry.
+    """
     if isinstance(value, Mapping):
         return {str(k): str(v) for k, v in value.items()}
     if _is_missing(value):
@@ -200,10 +208,18 @@ def _fields(value: object) -> dict[str, str]:
     if not text:
         return {}
     if text.startswith("{"):
-        parsed = ast.literal_eval(text)
-        if isinstance(parsed, dict):
-            return {str(k): str(v) for k, v in parsed.items()}
-    return dict(read_fasta(StringIO(f">x {text}\n"))[0].extra)
+        # The str() of a dict, as to_csv writes it. literal_eval only builds literals.
+        try:
+            parsed = ast.literal_eval(text)
+        except (ValueError, SyntaxError, MemoryError, RecursionError):
+            parsed = None
+        if not isinstance(parsed, dict):
+            raise FastaFormatError(text, reason=f"{where}: additional_fields is not a dict or KEY=value text")
+        return {str(k): str(v) for k, v in parsed.items()}
+    try:
+        return dict(read_fasta(StringIO(f">x {text}\n"))[0].extra)
+    except FastaParseError as err:
+        raise FastaFormatError(text, reason=f"{where}: additional_fields is not KEY=value text") from err
 
 
 def _from_sequence_entry(entry: SequenceEntry) -> FastaEntry:
@@ -226,27 +242,38 @@ def _from_sequence_entry(entry: SequenceEntry) -> FastaEntry:
         sequence_version=_text(entry.sv),
         protein_sequence=entry.sequence,
         additional_fields=extra,
+        raw_header=entry.raw_header,
     )
 
 
-def _to_record(entry: FastaEntry) -> dict[str, object]:
+def _to_record(entry: FastaEntry, where: str) -> dict[str, object]:
     db, uid, name = _text(entry.db), _text(entry.unique_identifier), _text(entry.entry_name)
     identifier = f"{db or ''}|{uid or ''}|{name or ''}" if (db or name) else uid
+    pname = _text(entry.protein_name)
+    extra = _fields(entry.additional_fields, where)
+    raw = _text(entry.raw_header)
+    if raw is not None and pname is not None and "PN=" in raw and "PN" not in extra:
+        # A 1.x header ("PN=Alpha protein OS=..."): the name was read from PN=, so put it
+        # back there or from_records sees an edit and rewrites the header.
+        parsed = read_fasta(StringIO(f">{raw}\n"))[0]
+        if parsed.pname is None and parsed.extra.get("PN") == pname:
+            pname, extra = None, dict(parsed.extra)
     return {
         "identifier": identifier,
-        "pname": entry.protein_name,
-        "os_name": entry.organism_name,
-        "ncbi_tax_id": entry.organism_identifier,
-        "gname": entry.gene_name,
-        "pe": entry.protein_existence,
-        "sv": entry.sequence_version,
-        "extra": _fields(entry.additional_fields) or None,
+        "pname": pname,
+        "os_name": _text(entry.organism_name),
+        "ncbi_tax_id": _text(entry.organism_identifier),
+        "gname": _text(entry.gene_name),
+        "pe": _text(entry.protein_existence),
+        "sv": _text(entry.sequence_version),
+        "extra": extra or None,
         "sequence": entry.protein_sequence,
+        "raw_header": raw,
     }
 
 
 def _to_sequence_entries(entries: Iterable[FastaEntry]) -> list[SequenceEntry]:
-    return from_records(_to_record(e) for e in entries)
+    return from_records(_to_record(e, f"entry {i}") for i, e in enumerate(entries))
 
 
 def _line_width(line_wrapping: bool, max_sequence_length: int | None) -> int:
@@ -288,7 +315,7 @@ def _fasta_str_to_entry(fasta_str: str) -> FastaEntry:
     :raises FastaFormatError: If the header has no identifier.
     """
     try:
-        entries = read_fasta(StringIO(fasta_str.rstrip("\r\n") + "\n"))
+        entries = read_fasta(StringIO(fasta_str.strip() + "\n"))
     except FastaParseError as err:
         raise _format_error(err) from err
     if len(entries) != 1:
@@ -316,7 +343,12 @@ def fasta_to_entries(data: Any, skip_error: bool = False) -> Generator[FastaEntr
     :raises FileNotFoundError: If ``data`` is a path that does not exist.
     :raises InvalidInputError: If ``data`` is not a supported source.
     """
-    source = StringIO("".join(_without_bad_records(get_lines(data)))) if skip_error else as_source(data)
+    # Leading whitespace is stripped from every line, so an indented ">" still starts a
+    # record (sequence lines lose only whitespace, which the parser drops anyway).
+    lines: Iterable[str] = (line.lstrip() + "\n" for line in get_lines(data))
+    if skip_error:
+        lines = _without_bad_records(line.rstrip("\n") for line in lines)
+    source = cast("IO[str]", LineReader(lines))  # a TextIOBase, which FastaReader reads like a file
     yielded = 0
     try:
         with FastaReader(source) as reader:
@@ -332,8 +364,8 @@ def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
     """
     Build a DataFrame from :class:`FastaEntry` objects (one row per entry).
 
-    Columns are the :data:`COLS` fields plus ``additional_fields`` and the
-    computed ``protein_id`` (see :meth:`FastaEntry.to_dict`).
+    Columns are the :data:`COLS` fields plus ``additional_fields``, ``raw_header``
+    and the computed ``protein_id`` (see :meth:`FastaEntry.to_dict`).
 
     :param entries: The :class:`FastaEntry` objects to tabulate.
     :return: A pandas DataFrame representing the FastaEntry objects.
@@ -364,9 +396,9 @@ def df_to_entries(df: pd.DataFrame) -> list[FastaEntry]:
     """
     Convert a FASTA DataFrame into a list of :class:`FastaEntry` objects.
 
-    The :data:`COLS` columns and ``additional_fields`` are used; other columns
-    (such as ``protein_id``) are ignored. Missing values (None, NaN, ``pd.NA``)
-    become None (an empty sequence for ``protein_sequence``), and integral
+    The :data:`COLS` columns, ``additional_fields`` and ``raw_header`` are used;
+    other columns (such as ``protein_id``) are ignored. Missing values (None, NaN,
+    ``pd.NA``, ``""``) become None (an empty sequence for ``protein_sequence``), and integral
     floats such as ``9606.0`` become ``"9606"``. ``additional_fields`` may be a
     dict, its ``str()`` (as read back from CSV) or ``KEY=value`` text. Missing
     expected columns are left at their defaults with a :class:`UserWarning`.
@@ -374,6 +406,7 @@ def df_to_entries(df: pd.DataFrame) -> list[FastaEntry]:
     :param df: The FASTA DataFrame (e.g. produced by :func:`to_df`).
     :return: List of :class:`FastaEntry` objects, one per row.
     :rtype: list[FastaEntry]
+    :raises FastaFormatError: If an ``additional_fields`` cell cannot be read.
     """
     missing_cols = set(COLS) - set(df.columns)
     if missing_cols:
@@ -385,14 +418,16 @@ def df_to_entries(df: pd.DataFrame) -> list[FastaEntry]:
         warnings.warn(message, stacklevel=2)
 
     entries = []
-    for row in df.to_dict("records"):
+    for i, row in enumerate(df.to_dict("records")):
         kwargs: dict[str, Any] = {c: _text(row[c]) for c in _STR_COLS if c in row}
         if "unique_identifier" in kwargs and kwargs["unique_identifier"] is None:
             kwargs["unique_identifier"] = ""
         if "protein_sequence" in row:
             kwargs["protein_sequence"] = _text(row["protein_sequence"]) or ""
         if "additional_fields" in row:
-            kwargs["additional_fields"] = _fields(row["additional_fields"])
+            kwargs["additional_fields"] = _fields(row["additional_fields"], f"row {i}")
+        if "raw_header" in row:
+            kwargs["raw_header"] = _text(row["raw_header"]) or ""
         entries.append(FastaEntry(**kwargs))
     logger.debug("df_to_entries: converted %d rows to FastaEntry objects", len(entries))
     return entries

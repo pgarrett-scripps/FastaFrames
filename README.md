@@ -151,6 +151,18 @@ Column descriptions (following the [UniProt FASTA header format](https://www.uni
 | `protein_existence` | Numerical evidence code for protein existence |
 | `sequence_version` | Sequence version number |
 | `protein_sequence` | Amino acid sequence |
+| `additional_fields` | Other `KEY=value` header fields, as a dict |
+| `raw_header` | The header line as read, without `>` (see below) |
+| `protein_id` | `db\|unique_identifier\|entry_name`, computed |
+
+### Editing headers in place
+
+`raw_header` keeps each entry's original header. `to_fasta` writes it byte for
+byte when no column was edited; an edited column is changed in place in it
+(other fields, their order and spacing stay), and a column set to None or `""`
+removes that field. Drop the column, or set it to `""`, to rebuild headers from
+the other columns. DataFrames without a `raw_header` column work as before.
+`FastaEntry(raw_header=...)` defaults to `""` and is ignored by `==`.
 
 ## Development
 

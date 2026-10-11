@@ -117,3 +117,39 @@ def test_empty_sequence_round_trip():
         FastaEntry(db="sp", unique_identifier="A", entry_name="B"),
         FastaEntry(db=None, unique_identifier="C", entry_name=None),
     ]
+
+
+def test_raw_header_keeps_unedited_header_and_edits_in_place():
+    """2.0 review: headers were rebuilt from columns, losing spacing and field order."""
+    text = ">sp|P1|A_H  Prot  GN=G OS=Hs XX=1\nMK\n>sp|P2|B_H PN=Old name OS=Hs\nMK\n"
+    df = to_df(text)
+    assert df.raw_header[0] == "sp|P1|A_H  Prot  GN=G OS=Hs XX=1"
+    assert to_fasta(df).getvalue() == text
+    df.loc[0, "gene_name"] = "NEW"
+    assert to_fasta(df).getvalue().startswith(">sp|P1|A_H  Prot  GN=NEW OS=Hs XX=1\n")
+
+
+def test_malformed_additional_fields_cell_raises_format_error():
+    df = to_df(SP)
+    df.loc[0, "additional_fields"] = "{bad"
+    with pytest.raises(FastaFormatError, match="row 0"):
+        to_fasta(df)
+
+
+def test_empty_gene_name_not_written():
+    assert FastaEntry(unique_identifier="X", gene_name="").header == ">X"
+    df = pd.DataFrame([FastaEntry(unique_identifier="X", gene_name="", protein_sequence="MK").to_dict()])
+    assert to_fasta(df).getvalue() == ">X\nMK\n"
+
+
+def test_leading_whitespace_before_header():
+    """1.4.0 accepted indented headers; an indented one mid-file was merged into the sequence."""
+    text = "  >sp|P1|A x\nMK\n >sp|P2|B y\n  MK\n"
+    assert to_df(text).unique_identifier.tolist() == ["P1", "P2"]
+    assert to_df(text, skip_error=True).protein_sequence.tolist() == ["MK", "MK"]
+
+
+def test_repeated_key_keeps_first_and_round_trips():
+    text = ">sp|P1|A X OS=H OS=M\nMK\n"
+    assert to_df(text).organism_name[0] == "H"
+    assert _round_trip(text) == text

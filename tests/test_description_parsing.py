@@ -188,4 +188,5 @@ from fastaframes.fastaframes import _fasta_str_to_entry
 )
 def test_extract_fasta_info(fasta_entry: str, expected: dict[str, object]):
     result = asdict(_fasta_str_to_entry(fasta_entry))
+    assert result.pop("raw_header") == fasta_entry[1:]
     assert result == expected

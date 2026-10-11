@@ -9,10 +9,11 @@ iterable of ``str``/``bytes`` lines.
 
 import bz2
 import gzip
+import io
 import logging
 import lzma
 import os
-from collections.abc import Generator
+from collections.abc import Generator, Iterable, Iterator
 from io import StringIO
 from pathlib import Path
 from typing import IO, Any
@@ -103,3 +104,27 @@ def get_lines(file_input: Any) -> Generator[str, None, None]:
     finally:
         if handle is not source:
             handle.close()
+
+
+class LineReader(io.TextIOBase):
+    """A read-only text handle over an iterable of lines (each ending in ``\\n``).
+
+    Lets :class:`fastatacular.FastaReader` stream lines that were cleaned up first,
+    without reading the whole source into memory.
+    """
+
+    def __init__(self, lines: Iterable[str]) -> None:
+        super().__init__()
+        self._lines: Iterator[str] = iter(lines)
+
+    def readable(self) -> bool:
+        return True
+
+    def __iter__(self) -> "LineReader":
+        return self
+
+    def __next__(self) -> str:
+        return next(self._lines)
+
+    def readline(self, size: int | None = -1, /) -> str:
+        return next(self._lines, "")
