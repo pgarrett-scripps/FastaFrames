@@ -43,6 +43,11 @@ parsing and writing. The public API and DataFrame columns are unchanged.
   header parser is removed.
 - Paths may be `str` or `pathlib.Path`, plain or gzip/bzip2/xz compressed;
   `output_file` ending in `.gz`, `.bz2` or `.xz` is written compressed.
+- Built with hatchling. The sdist holds only the package, tests, README,
+  CHANGELOG, LICENSE, CITATION.cff and pyproject.toml; it now includes the test
+  data (`tests/data/test.fasta`) and the changelog, which 1.x left out.
+- README rewritten for 2.0; CITATION.cff added; project URLs, keywords and an
+  SPDX license expression added to the package metadata.
 
 ### Fixed
 - UniProt files round-trip byte-identically through `to_df` -> `to_fasta`.
