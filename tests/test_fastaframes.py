@@ -110,6 +110,7 @@ def test_from_fasta():
                 protein_existence="5",
                 sequence_version="1",
                 protein_sequence="MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ",
+                raw_header=fasta_content.split("\n")[0][1:],
             ).to_dict()
         ]
     )
@@ -166,7 +167,7 @@ def test_to_fasta():
     fasta_df = pd.DataFrame(data)
     result = to_fasta(fasta_df)
     expected = (
-        ">sp|A0A087X1C5|CP2D7_HUMAN PN=Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1"
+        ">sp|A0A087X1C5|CP2D7_HUMAN Putative cytochrome P450 2D7 OS=Homo sapiens OX=9606 GN=CYP2D7 PE=5 SV=1"
         "\nMGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQ\n"
     )
     assert result.getvalue() == expected

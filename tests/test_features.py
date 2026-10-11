@@ -61,7 +61,7 @@ def test_to_fasta_wrapping_multiple_entries():
 
 def test_header_does_not_emit_literal_none():
     entry = FastaEntry(db=None, unique_identifier="Q8I6R7", entry_name=None)
-    assert entry.header == ">|Q8I6R7|"
+    assert entry.header == ">Q8I6R7"
     assert "None" not in entry.serialize()
 
 

@@ -1,7 +1,6 @@
-from io import TextIOWrapper, StringIO
+from io import StringIO, TextIOWrapper
 
-from fastaframes import to_df
-from fastaframes import to_fasta
+from fastaframes import to_df, to_fasta
 
 FASTA_FILE = "../tests/data/test.fasta"
 

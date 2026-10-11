@@ -1,4 +1,5 @@
 import streamlit as st  # pip install streamlit
+
 from fastaframes import to_df
 
 fasta = st.file_uploader("Upload FASTA file", type=".fasta")

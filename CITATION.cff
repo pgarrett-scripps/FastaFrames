@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "FastaFrames: FASTA files as pandas DataFrames"
+abstract: >-
+  FastaFrames reads FASTA protein sequence files into pandas DataFrames, with
+  one column per UniProt header field, and writes DataFrames back to FASTA.
+  Parsing and writing are done by fastatacular.
+version: "2.0.0"
+date-released: "2026-10-11"
+authors:
+  - family-names: Garrett
+    given-names: Patrick
+    orcid: https://orcid.org/0000-0002-8434-9693
+    affiliation: Scripps Research Institute
+repository-code: https://github.com/pgarrett-scripps/FastaFrames
+license: MIT
+keywords:
+  - FASTA
+  - UniProt
+  - pandas
+  - proteomics

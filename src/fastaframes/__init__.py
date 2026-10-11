@@ -1,4 +1,7 @@
-"""fastaframes - A simple fasta file parser.
+"""fastaframes - FASTA files to pandas DataFrames and back.
+
+Parsing and writing are done by fastatacular; fastaframes maps its entries to
+DataFrame columns.
 
 Errors derive from :class:`FastaFramesError` (see :mod:`fastaframes.exceptions`).
 The package logs under the ``"fastaframes"`` logger and installs a
@@ -44,4 +47,4 @@ __all__ = [
     "to_fasta",
 ]
 
-__version__ = "1.4.0"
+__version__ = "2.0.0"

@@ -2,6 +2,73 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0]
+
+FastaFrames is now a pandas layer over
+[fastatacular](https://pypi.org/project/fastatacular/), which does all FASTA
+parsing and writing. The public API and DataFrame columns are unchanged.
+
+### Breaking
+- Requires Python >= 3.12 (fastatacular's floor), `fastatacular>=1.3,<2` and
+  `pandas>=2.1`.
+- Written headers changed. The protein name is no longer written as an invented
+  `PN=` field, and a header whose identifier is not `db|accession|entry_name`
+  is written as it was read: `>myid some desc` stays `>myid some desc` instead
+  of becoming `>|myid| PN=some desc`. `FastaEntry.header` for an entry without
+  `db` and `entry_name` is `>ACCESSION`, not `>|ACCESSION|`. Files written by
+  1.x still read correctly: a leading `PN=` is read into `protein_name`.
+- A `str` that is not FASTA text (no newline, does not start with `>`) is a
+  path; a missing path raises `FileNotFoundError` instead of returning an
+  empty DataFrame.
+- Sequence lines before the first header raise `FastaFormatError` (skipped with
+  a warning under `skip_error=True`) instead of being dropped silently.
+- Whitespace around the protein name and field values is trimmed.
+- A header that is not three `|`-separated fields no longer emits a
+  `UserWarning`; it is kept whole in `unique_identifier` as before.
+- A record with an empty sequence is written as its header line alone.
+- Writing an entry with no identifier, or a non-integer `organism_identifier`,
+  `protein_existence` or `sequence_version`, raises `fastatacular.FastaWriteError`
+  (a `ValueError`); every entry is checked before anything is written.
+
+### Added
+- `raw_header` column and `FastaEntry.raw_header` field (default `""`): the
+  header as read. Unedited entries are written back byte for byte; an edited
+  column is changed in place in the original header, and a column set to None
+  or `""` removes that field. DataFrames without the column work as before;
+  `raw_header` is not compared by `FastaEntry.__eq__`. `to_df` output has this
+  one extra column.
+
+### Changed
+- Header parsing and FASTA writing go through fastatacular; FastaFrames' own
+  header parser is removed.
+- Paths may be `str` or `pathlib.Path`, plain or gzip/bzip2/xz compressed;
+  `output_file` ending in `.gz`, `.bz2` or `.xz` is written compressed.
+- Built with hatchling. The sdist holds only the package, tests, README,
+  CHANGELOG, LICENSE, CITATION.cff and pyproject.toml; it now includes the test
+  data (`tests/data/test.fasta`) and the changelog, which 1.x left out.
+- README rewritten for 2.0; CITATION.cff added; project URLs, keywords and an
+  SPDX license expression added to the package metadata.
+
+### Fixed
+- UniProt files round-trip byte-identically through `to_df` -> `to_fasta`.
+- Leading whitespace before `>` is stripped from every line, as 1.4.0 did; an
+  indented header mid-file is no longer merged into the previous sequence.
+- A malformed `additional_fields` cell (e.g. `"{bad"`) raises `FastaFormatError`
+  naming the row instead of a bare `SyntaxError`.
+- An empty string in a field column (`gene_name=""`) is a missing value and is
+  not written as `GN=`.
+- A repeated header key keeps its first value (`OS=H OS=M` reads as `H`); the
+  unedited header is written back unchanged.
+- Missing values (NaN, None, `pd.NA`) are left out of written headers instead of
+  being written as `nan` (`GN=nan`, `>nan|myid|nan`); integral floats from a
+  column with gaps or a CSV round trip (`9606.0`) are written as `9606`.
+- `additional_fields` survive a DataFrame round trip (also through CSV, where
+  the column comes back as text).
+- A `>` inside a header is kept (it was deleted).
+- A tab after the identifier separates it from the description.
+- A `.gz` path no longer crashes; `pathlib.Path` inputs are accepted.
+- A NaN sequence with `max_sequence_length` set no longer raises `TypeError`.
+
 ## [1.4.0]
 
 ### Added
