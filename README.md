@@ -4,7 +4,12 @@
 
 # FastaFrames
 
-Convert between UniProt FASTA files and pandas DataFrames.
+Convert between UniProt FASTA files and pandas DataFrames. Parsing and writing are
+done by [fastatacular](https://pypi.org/project/fastatacular/); FastaFrames maps
+its entries to DataFrame columns. Requires Python >= 3.12.
+
+Upgrading from 1.x: see the 2.0.0 notes in [CHANGELOG.md](CHANGELOG.md). The API
+and columns are the same; written headers no longer contain an invented `PN=`.
 
 ## Installation
 
@@ -48,12 +53,16 @@ entries_to_fasta(entries, output_file="human_only.fasta")
 
 ```python
 from io import StringIO
+from pathlib import Path
+
 from fastaframes import to_df
 
-# From a file path
+# From a file path (str or pathlib.Path; gzip, bzip2 and xz are read transparently)
 df = to_df("proteins.fasta")
+df = to_df(Path("proteins.fasta.gz"))
 
-# From a string
+# From FASTA text (a str with a newline or starting with ">"; any other str is a
+# path, and a missing path raises FileNotFoundError)
 df = to_df(">sp|P12345|EXAMPLE_HUMAN Example protein OS=Homo sapiens OX=9606\nMSEQUENCE\n")
 
 # From a file object
@@ -83,8 +92,10 @@ to_fasta(df, output_file="wrapped.fasta", max_sequence_length=60)
 
 ### Preserve non-standard header fields
 
-Any `KEY=value` field beyond the standard `PN`/`OS`/`OX`/`GN`/`PE`/`SV` is kept
-in `FastaEntry.additional_fields` and re-emitted on serialization.
+Any `KEY=value` field beyond the standard `OS`/`OX`/`GN`/`PE`/`SV` is kept in
+`FastaEntry.additional_fields` (the `additional_fields` column) and written back
+after the standard fields, also after a DataFrame or CSV round trip. UniProt
+headers round-trip byte-identically.
 
 ### Error handling
 

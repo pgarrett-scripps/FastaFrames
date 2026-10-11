@@ -47,7 +47,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "unique_identifier": "Q3SA23",
                 "entry_name": "Q3SA23_9HIV1",
                 "protein_name": "Protein Nef (Fragment)",
-                "organism_name": "Human immunodeficiency virus 1 ",
+                "organism_name": "Human immunodeficiency virus 1",
                 "organism_identifier": "11676",
                 "gene_name": "nef",
                 "protein_existence": "3",
@@ -126,7 +126,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "db": "tr",
                 "unique_identifier": "G3MXS6",
                 "entry_name": "G3MXS6_BOVIN",
-                "protein_name": "Uncharacterized protein (Fragment) ",  # note the extra space
+                "protein_name": "Uncharacterized protein (Fragment)",  # surrounding whitespace is trimmed
                 "organism_name": None,
                 "organism_identifier": None,
                 "gene_name": None,

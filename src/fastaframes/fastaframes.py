@@ -2,32 +2,39 @@
 Core fastaframes functionality: the :class:`FastaEntry` record and the functions
 that convert between FASTA text, ``FastaEntry`` objects, and pandas DataFrames.
 
+Parsing and writing are done by `fastatacular <https://pypi.org/project/fastatacular/>`_;
+this module maps its entries to the FastaFrames column names.
+
 Errors
 ------
-Malformed FASTA headers raise :class:`fastaframes.exceptions.FastaFormatError`
-(a subclass of ``ValueError``). Unrecognized ``KEY=value`` header fields are
-preserved in :attr:`FastaEntry.additional_fields` rather than raising.
+Malformed FASTA (an empty header, sequence data before the first header) raises
+:class:`fastaframes.exceptions.FastaFormatError` (a subclass of ``ValueError``).
+Unrecognized ``KEY=value`` header fields are kept in
+:attr:`FastaEntry.additional_fields`. Writing an entry that cannot be written (no
+identifier, a non-integer ``organism_identifier``, ...) raises
+:class:`fastatacular.FastaWriteError` (also a ``ValueError``).
 
 Logging
 -------
 Logs under the ``"fastaframes.fastaframes"`` logger: normal progress (entry
 counts, output targets) at ``DEBUG`` and tolerated-but-odd input at ``WARNING``.
-The package installs a ``NullHandler``, so nothing is emitted until logging is
-configured.
 """
 
+import ast
 import logging
+import os
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Iterator, Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from io import StringIO, TextIOWrapper
-from typing import TextIO
+from io import StringIO
+from typing import Any
 
 import pandas as pd
+from fastatacular import FastaParseError, FastaReader, SequenceEntry, from_records, read_fasta, write_fasta
 
 from .exceptions import FastaFormatError
-from .util import get_lines
+from .util import as_source, get_lines
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +50,8 @@ COLS = [
     "sequence_version",
     "protein_sequence",
 ]
+
+_STR_COLS = [c for c in COLS if c != "protein_sequence"]
 
 
 class FastaFields(Enum):
@@ -71,22 +80,23 @@ class FastaEntry:
 
     Mirrors the UniProt-style header
     ``>db|unique_identifier|entry_name ProteinName OS=... OX=... GN=... PE=... SV=...``.
-    Unrecognized ``KEY=value`` header fields are captured in
-    :attr:`additional_fields` and re-emitted on serialization, so an entry
-    round-trips through parse -> serialize without losing information.
+    An identifier that is not exactly three ``|``-separated fields (``>myid``,
+    ``>gi|229552|pdb|1MBA|A``) is kept whole in :attr:`unique_identifier`, with
+    ``db`` and ``entry_name`` set to None. Unrecognized ``KEY=value`` header fields
+    are kept in :attr:`additional_fields` and written back after the standard ones.
 
     :param db: Source database (``"sp"`` for Swiss-Prot, ``"tr"`` for TrEMBL).
     :param unique_identifier: Primary accession (e.g. ``"P12345"``).
     :param entry_name: Entry name (e.g. ``"CP2D7_HUMAN"``).
-    :param protein_name: Recommended protein name.
+    :param protein_name: Recommended protein name (the text before the first ``KEY=``).
     :param organism_name: Scientific organism name (``OS=``).
     :param organism_identifier: NCBI taxonomy id (``OX=``).
     :param gene_name: Gene name (``GN=``).
     :param protein_existence: Protein-existence evidence level (``PE=``).
     :param sequence_version: Sequence version (``SV=``).
     :param protein_sequence: The amino-acid sequence.
-    :param additional_fields: Non-standard ``KEY=value`` header fields, preserved
-        for round-tripping. Defaults to an empty dict.
+    :param additional_fields: Non-standard ``KEY=value`` header fields. Defaults to
+        an empty dict.
     """
 
     db: str | None = ""
@@ -117,51 +127,35 @@ class FastaEntry:
 
     @property
     def header(self) -> str:
-        """The FASTA header line for this entry (leading ``>`` included).
+        """The FASTA header line for this entry (leading ``>`` included, no newline).
 
-        Builds ``>db|unique_identifier|entry_name`` followed by any set optional
-        fields as `` KEY=value`` (the standard fields then
-        :attr:`additional_fields`). Missing ``db``/``unique_identifier``/
-        ``entry_name`` render as empty strings (e.g. ``>|P12345|``) rather than
-        the literal text ``"None"``.
+        The identifier is ``db|unique_identifier|entry_name`` when ``db`` or
+        ``entry_name`` is set, else ``unique_identifier`` alone. Then come the
+        protein name, ``OS=``, ``OX=``, ``GN=``, ``PE=``, ``SV=`` (UniProt order)
+        and :attr:`additional_fields`; unset fields are left out.
 
-        :return: The FASTA header line (no trailing newline).
+        :return: The FASTA header line.
         :rtype: str
+        :raises fastatacular.FastaWriteError: If the entry has no identifier.
         """
-        optional_fields = [
-            (f" {FastaFields.PROTEIN_NAME.value}=", self.protein_name),
-            (f" {FastaFields.ORGANISM_NAME.value}=", self.organism_name),
-            (f" {FastaFields.ORGANISM_ID.value}=", self.organism_identifier),
-            (f" {FastaFields.GENE_NAME.value}=", self.gene_name),
-            (f" {FastaFields.PROTEIN_EXISTENCE.value}=", self.protein_existence),
-            (f" {FastaFields.SEQUENCE_VERSION.value}=", self.sequence_version),
-        ]
-        optional_fields += [(f" {key}=", value) for key, value in self.additional_fields.items()]
-
-        fasta_header = f">{self.db or ''}|{self.unique_identifier or ''}|{self.entry_name or ''}"
-        fasta_header += "".join(f"{key}{value}" for key, value in optional_fields if value)
-        return fasta_header
+        return ">" + _to_sequence_entries([self])[0].raw_header
 
     def serialize(self, line_wrapping: bool = True, max_sequence_length: int | None = None) -> str:
-        """Serialize this entry to a FASTA string: ``header`` + sequence + newline.
+        """Serialize this entry to a FASTA string: :attr:`header`, then the sequence.
 
         The sequence is wrapped only when ``line_wrapping`` is True and
-        ``max_sequence_length`` is a positive int; otherwise the sequence is
-        written on a single line. The returned string ends with a trailing
-        newline, so :func:`entries_to_fasta` can concatenate records directly.
+        ``max_sequence_length`` is a positive int; otherwise it is written on one
+        line. Every line ends with ``\\n``; an empty sequence writes the header alone.
 
         :param line_wrapping: Whether wrapping is allowed at all. Default True.
         :param max_sequence_length: Line width to wrap the sequence at. ``None``
             (default) or a non-positive value means "do not wrap".
-        :return: The serialized FASTA record (with a trailing newline).
+        :return: The serialized FASTA record.
         :rtype: str
         """
-        sequence = self.protein_sequence or ""
-        if line_wrapping and sequence and max_sequence_length is not None and max_sequence_length > 0:
-            sequence = "\n".join(
-                sequence[i : i + max_sequence_length] for i in range(0, len(sequence), max_sequence_length)
-            )
-        return f"{self.header}\n{sequence}\n"
+        out = StringIO()
+        write_fasta(_to_sequence_entries([self]), out, line_width=_line_width(line_wrapping, max_sequence_length))
+        return out.getvalue()
 
     def to_dict(self) -> dict[str, object]:
         """Return this entry as a dict of all fields plus the computed ``protein_id``.
@@ -174,58 +168,164 @@ class FastaEntry:
         return d
 
 
-def fasta_to_entries(
-    data: str | TextIOWrapper | StringIO | TextIO, skip_error: bool = False
-) -> Generator[FastaEntry, None, None]:
+# --- conversion to and from fastatacular -------------------------------------------------
+
+
+def _is_missing(value: object) -> bool:
+    """None, NaN and ``pd.NA`` are missing; containers are not."""
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _text(value: object) -> str | None:
+    """A str for a cell value: missing -> None, ``9606.0`` -> ``"9606"``."""
+    if _is_missing(value):
+        return None
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def _fields(value: object) -> dict[str, str]:
+    """``additional_fields`` from a dict, its ``str()`` (a CSV round trip), or ``KEY=value`` text."""
+    if isinstance(value, Mapping):
+        return {str(k): str(v) for k, v in value.items()}
+    if _is_missing(value):
+        return {}
+    text = str(value).strip()
+    if not text:
+        return {}
+    if text.startswith("{"):
+        parsed = ast.literal_eval(text)
+        if isinstance(parsed, dict):
+            return {str(k): str(v) for k, v in parsed.items()}
+    return dict(read_fasta(StringIO(f">x {text}\n"))[0].extra)
+
+
+def _from_sequence_entry(entry: SequenceEntry) -> FastaEntry:
+    parts = entry.identifier.split("|")
+    db, uid, name = parts if len(parts) == 3 else (None, entry.identifier, None)
+    extra = dict(entry.extra)
+    protein_name = entry.pname
+    if protein_name is None and "PN" in extra:
+        # Headers written by FastaFrames 1.x: ">sp|P1|ABC PN=Alpha protein OS=...".
+        protein_name = extra.pop("PN")
+    return FastaEntry(
+        db=db,
+        unique_identifier=uid,
+        entry_name=name,
+        protein_name=protein_name,
+        organism_name=entry.os_name,
+        organism_identifier=_text(entry.ncbi_tax_id),
+        gene_name=entry.gname,
+        protein_existence=_text(entry.pe),
+        sequence_version=_text(entry.sv),
+        protein_sequence=entry.sequence,
+        additional_fields=extra,
+    )
+
+
+def _to_record(entry: FastaEntry) -> dict[str, object]:
+    db, uid, name = _text(entry.db), _text(entry.unique_identifier), _text(entry.entry_name)
+    identifier = f"{db or ''}|{uid or ''}|{name or ''}" if (db or name) else uid
+    return {
+        "identifier": identifier,
+        "pname": entry.protein_name,
+        "os_name": entry.organism_name,
+        "ncbi_tax_id": entry.organism_identifier,
+        "gname": entry.gene_name,
+        "pe": entry.protein_existence,
+        "sv": entry.sequence_version,
+        "extra": _fields(entry.additional_fields) or None,
+        "sequence": entry.protein_sequence,
+    }
+
+
+def _to_sequence_entries(entries: Iterable[FastaEntry]) -> list[SequenceEntry]:
+    return from_records(_to_record(e) for e in entries)
+
+
+def _line_width(line_wrapping: bool, max_sequence_length: int | None) -> int:
+    if line_wrapping and max_sequence_length is not None and max_sequence_length > 0:
+        return int(max_sequence_length)
+    return 0
+
+
+def _format_error(err: FastaParseError) -> FastaFormatError:
+    exc = FastaFormatError((err.context or "").rstrip("\r\n"), reason=str(err))
+    exc.__cause__ = err
+    return exc
+
+
+def _without_bad_records(lines: Iterable[str]) -> Iterator[str]:
+    """Drop headers with no identifier (and their sequence) and sequence lines before the first header."""
+    keep = True
+    seen_header = False
+    for line in lines:
+        if line.startswith(">"):
+            seen_header = True
+            keep = bool(line[1:].strip())
+            if not keep:
+                logger.warning("Skipping malformed FASTA header %r: no identifier", line)
+        elif not seen_header and line.strip() and line[0] not in ";#":
+            logger.warning("Skipping sequence line before the first header: %r", line)
+            continue
+        if keep:
+            yield line + "\n"
+
+
+def _fasta_str_to_entry(fasta_str: str) -> FastaEntry:
+    """
+    Parse a single FASTA header line into a :class:`FastaEntry`.
+
+    :param fasta_str: The header line of a fasta entry (leading ``>`` included).
+    :return: FastaEntry object with an empty sequence.
+    :rtype: FastaEntry
+    :raises FastaFormatError: If the header has no identifier.
+    """
+    try:
+        entries = read_fasta(StringIO(fasta_str.rstrip("\r\n") + "\n"))
+    except FastaParseError as err:
+        raise _format_error(err) from err
+    if len(entries) != 1:
+        raise FastaFormatError(fasta_str, reason="expected exactly one header line")
+    return _from_sequence_entry(entries[0])
+
+
+# --- public API ------------------------------------------------------------------------
+
+
+def fasta_to_entries(data: Any, skip_error: bool = False) -> Generator[FastaEntry, None, None]:
     """
     Parse FASTA content and lazily yield one :class:`FastaEntry` per record.
 
-    :param data: A file path, FASTA string, or file-like object (see
-        :func:`fastaframes.util.get_lines` for accepted inputs).
-    :param skip_error: If True, a header that fails to parse is skipped instead
-        of raising; if False (default) the error propagates.
+    :param data: A path (``str`` or :class:`os.PathLike`; plain, gzip, bzip2 or xz),
+        raw FASTA text, a readable text or binary file-like object (read from the
+        start), or an iterable of ``str``/``bytes`` lines. A ``str`` is FASTA text
+        when it is blank, contains a newline or starts with ``>``; otherwise it is a path.
+    :param skip_error: If True, a header with no identifier (and its sequence) and
+        sequence lines before the first header are skipped with a warning; if False
+        (default) they raise.
     :return: A generator that yields :class:`FastaEntry` objects.
     :rtype: Generator[FastaEntry, None, None]
-    :raises FastaFormatError: On a malformed header when ``skip_error`` is False.
+    :raises FastaFormatError: On malformed FASTA when ``skip_error`` is False.
+    :raises FileNotFoundError: If ``data`` is a path that does not exist.
+    :raises InvalidInputError: If ``data`` is not a supported source.
     """
-
-    # Ensure data is iterable line by line
-    lines = get_lines(data)
-
-    current_entry = None
+    source = StringIO("".join(_without_bad_records(get_lines(data)))) if skip_error else as_source(data)
     yielded = 0
-    skipped = 0
-
-    for raw_line in lines:
-        line = raw_line.strip()
-
-        if not line:
-            continue
-
-        if line.startswith(">"):  # new protein
-            if current_entry is not None:
-                yield current_entry
+    try:
+        with FastaReader(source) as reader:
+            for entry in reader:
+                yield _from_sequence_entry(entry)
                 yielded += 1
-                current_entry = None
-
-            try:
-                current_entry = _fasta_str_to_entry(line)
-            except FastaFormatError as err:
-                if skip_error:
-                    skipped += 1
-                    logger.warning("Skipping malformed FASTA header: %s", err)
-                    current_entry = None
-                    continue
-                raise
-
-        elif current_entry:
-            current_entry.protein_sequence += line
-
-    if current_entry:
-        yield current_entry
-        yielded += 1
-
-    logger.debug("fasta_to_entries: yielded %d entries, skipped %d malformed headers", yielded, skipped)
+    except FastaParseError as err:
+        raise _format_error(err) from err
+    logger.debug("fasta_to_entries: yielded %d entries", yielded)
 
 
 def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
@@ -239,30 +339,24 @@ def entries_to_df(entries: Iterable[FastaEntry]) -> pd.DataFrame:
     :return: A pandas DataFrame representing the FastaEntry objects.
     :rtype: pd.DataFrame
     """
-
-    fasta_df = pd.DataFrame([entry.to_dict() for entry in entries])
-    return fasta_df
+    return pd.DataFrame([entry.to_dict() for entry in entries])
 
 
-def to_df(
-    data: str | TextIOWrapper | StringIO | TextIO | list[FastaEntry],
-    skip_error: bool = False,
-) -> pd.DataFrame:
+def to_df(data: Any, skip_error: bool = False) -> pd.DataFrame:
     """
     Convert a FASTA source (or list of entries) into a pandas DataFrame.
 
-    :param data: FASTA content, a file-like object, or a list of
+    :param data: Any source :func:`fasta_to_entries` accepts, or a list of
         :class:`FastaEntry` objects.
     :param skip_error: If True, malformed FASTA records are skipped instead of
         raising. Ignored when ``data`` is already a list of entries.
     :return: A pandas DataFrame representing the FASTA content or entries.
     :rtype: pd.DataFrame
     :raises FastaFormatError: On malformed FASTA when ``skip_error`` is False.
+    :raises FileNotFoundError: If ``data`` is a path that does not exist.
     """
-
     if isinstance(data, list):
-        return entries_to_df(data)  # ty: ignore[invalid-argument-type]
-
+        return entries_to_df(data)
     return entries_to_df(fasta_to_entries(data, skip_error))
 
 
@@ -270,15 +364,17 @@ def df_to_entries(df: pd.DataFrame) -> list[FastaEntry]:
     """
     Convert a FASTA DataFrame into a list of :class:`FastaEntry` objects.
 
-    Only the columns in :data:`COLS` are used; extra columns (such as
-    ``protein_id``) are ignored, and any missing expected columns are left at
-    their defaults with a :class:`UserWarning` naming them.
+    The :data:`COLS` columns and ``additional_fields`` are used; other columns
+    (such as ``protein_id``) are ignored. Missing values (None, NaN, ``pd.NA``)
+    become None (an empty sequence for ``protein_sequence``), and integral
+    floats such as ``9606.0`` become ``"9606"``. ``additional_fields`` may be a
+    dict, its ``str()`` (as read back from CSV) or ``KEY=value`` text. Missing
+    expected columns are left at their defaults with a :class:`UserWarning`.
 
     :param df: The FASTA DataFrame (e.g. produced by :func:`to_df`).
     :return: List of :class:`FastaEntry` objects, one per row.
     :rtype: list[FastaEntry]
     """
-
     missing_cols = set(COLS) - set(df.columns)
     if missing_cols:
         message = (
@@ -288,54 +384,62 @@ def df_to_entries(df: pd.DataFrame) -> list[FastaEntry]:
         logger.warning("df_to_entries: %s", message)
         warnings.warn(message, stacklevel=2)
 
-    cols = [c for c in COLS if c in df.columns]
-    entries = [FastaEntry(**row.to_dict()) for _, row in df[cols].iterrows()]
+    entries = []
+    for row in df.to_dict("records"):
+        kwargs: dict[str, Any] = {c: _text(row[c]) for c in _STR_COLS if c in row}
+        if "unique_identifier" in kwargs and kwargs["unique_identifier"] is None:
+            kwargs["unique_identifier"] = ""
+        if "protein_sequence" in row:
+            kwargs["protein_sequence"] = _text(row["protein_sequence"]) or ""
+        if "additional_fields" in row:
+            kwargs["additional_fields"] = _fields(row["additional_fields"])
+        entries.append(FastaEntry(**kwargs))
     logger.debug("df_to_entries: converted %d rows to FastaEntry objects", len(entries))
     return entries
 
 
 def entries_to_fasta(
     entries: Iterable[FastaEntry],
-    output_file: str | None = None,
+    output_file: str | os.PathLike[str] | None = None,
     line_wrapping: bool = True,
     max_sequence_length: int | None = None,
 ) -> StringIO | None:
     """
     Serialize :class:`FastaEntry` objects to FASTA text or a file.
 
+    Every entry is checked before anything is written.
+
     :param entries: The :class:`FastaEntry` objects to serialize.
-    :param output_file: Destination path. If None (default), the FASTA text is
-        returned as a :class:`io.StringIO`.
+    :param output_file: Destination path (``.gz``, ``.bz2`` and ``.xz`` are
+        compressed). If None (default), the FASTA text is returned as a
+        :class:`io.StringIO`.
     :param line_wrapping: Whether sequence wrapping is allowed. Default True.
     :param max_sequence_length: Line width to wrap sequences at; ``None`` or a
         non-positive value means no wrapping. See :meth:`FastaEntry.serialize`.
     :return: A :class:`io.StringIO` with the FASTA content, or None if
         ``output_file`` was provided.
     :rtype: StringIO | None
+    :raises fastatacular.FastaWriteError: If an entry cannot be written.
     :raises OSError: If ``output_file`` cannot be written.
     """
-
-    fasta_string = StringIO()
-    count = 0
-    for entry in entries:
-        fasta_string.write(entry.serialize(line_wrapping=line_wrapping, max_sequence_length=max_sequence_length))
-        count += 1
-
-    fasta_string.seek(0)
+    seq_entries = _to_sequence_entries(entries)
+    width = _line_width(line_wrapping, max_sequence_length)
 
     if output_file is not None:
-        with open(file=output_file, mode="w", encoding="UTF-8") as f:
-            f.write(fasta_string.getvalue())
-        logger.debug("entries_to_fasta: wrote %d entries to %r", count, output_file)
+        write_fasta(seq_entries, os.fspath(output_file), line_width=width)
+        logger.debug("entries_to_fasta: wrote %d entries to %r", len(seq_entries), output_file)
         return None
 
-    logger.debug("entries_to_fasta: serialized %d entries to StringIO", count)
+    fasta_string = StringIO()
+    write_fasta(seq_entries, fasta_string, line_width=width)
+    fasta_string.seek(0)
+    logger.debug("entries_to_fasta: serialized %d entries to StringIO", len(seq_entries))
     return fasta_string
 
 
 def to_fasta(
     data: pd.DataFrame | Iterable[FastaEntry],
-    output_file: str | None = None,
+    output_file: str | os.PathLike[str] | None = None,
     line_wrapping: bool = True,
     max_sequence_length: int | None = None,
 ) -> StringIO | None:
@@ -352,124 +456,6 @@ def to_fasta(
         ``output_file`` was provided.
     :rtype: StringIO | None
     """
-
     if isinstance(data, pd.DataFrame):
         return entries_to_fasta(df_to_entries(data), output_file, line_wrapping, max_sequence_length)
-
     return entries_to_fasta(data, output_file, line_wrapping, max_sequence_length)
-
-
-def _extract_fasta_header_elements(entry_str: str) -> list[str]:
-    """
-    Split a header line into space-separated tokens (``>`` stripped).
-
-    :param entry_str: The header line of a fasta entry.
-    :return: List of elements extracted from the header line.
-    :rtype: list[str]
-    """
-
-    line_elements = entry_str.rstrip().replace(">", "").split(" ")
-    return line_elements
-
-
-def _extract_initial_info(line_elements: list[str]) -> tuple[str | None, str, str | None]:
-    """
-    Extract ``(db, unique_identifier, entry_name)`` from the header elements.
-
-    Expects the first element to be ``db|unique_identifier|entry_name``. If it
-    does not split into exactly three parts, the whole first element is used as
-    the ``unique_identifier`` and a :class:`UserWarning` is emitted.
-
-    :param line_elements: Elements from :func:`_extract_fasta_header_elements`.
-    :return: Tuple containing database, unique identifier, and entry name.
-    :rtype: tuple[str | None, str, str | None]
-    """
-
-    first_element_parts = line_elements[0].split("|")
-
-    if len(first_element_parts) == 3:
-        db = first_element_parts[0]
-        unique_identifier = first_element_parts[1]
-        entry_name = first_element_parts[2]
-        return db, unique_identifier, entry_name
-
-    logger.warning("Non-standard FASTA header %r; using it as the unique_identifier", line_elements[0])
-    warnings.warn(
-        f"Invalid fasta header format: {line_elements[0]}, using only the first part as unique identifier.",
-        stacklevel=2,
-    )
-
-    return None, line_elements[0], None
-
-
-def _process_line_elements(line_elements: list[str]) -> dict[str, list[str]]:
-    """
-    Process the header tokens and group them by field key.
-
-    The first element (``>db|UniqueIdentifier|EntryName``) is skipped. Tokens
-    before the first ``KEY=`` are the protein name; ``KEY=value`` tokens start a
-    new field. Keys outside the standard set are kept as-is so they can be
-    preserved in :attr:`FastaEntry.additional_fields`.
-
-    :param line_elements: Elements from :func:`_extract_fasta_header_elements`.
-    :return: Dictionary mapping each field key to its list of value tokens.
-    :rtype: dict[str, list[str]]
-    """
-
-    info: dict[str, list[str]] = {}
-    current_state = FastaFields.PROTEIN_NAME.value
-
-    for elem in line_elements[1:]:
-        value = elem
-        if "=" in elem:
-            # Split on the first '=' so keys of any length round-trip.
-            current_state, _, value = elem.partition("=")
-
-        if current_state not in {f.value for f in FastaFields}:
-            logger.debug("Unrecognized header field %r; captured in additional_fields", current_state)
-
-        info.setdefault(current_state, []).append(value)
-
-    return info
-
-
-def _fasta_str_to_entry(fasta_str: str) -> FastaEntry:
-    """
-    Parse a single FASTA header line into a :class:`FastaEntry`.
-
-    Standard keys (``PN``/``OS``/``OX``/``GN``/``PE``/``SV``) map to named
-    attributes; any other key is preserved in
-    :attr:`FastaEntry.additional_fields`.
-
-    :param fasta_str: The header line of a fasta entry (leading ``>`` included).
-    :return: FastaEntry object containing the extracted information.
-    :rtype: FastaEntry
-    :raises FastaFormatError: If the header has no usable identifier at all.
-    """
-
-    line_elements = _extract_fasta_header_elements(fasta_str)
-    db, unique_identifier, entry_name = _extract_initial_info(line_elements)
-    info = _process_line_elements(line_elements)
-
-    if not db and not unique_identifier and not entry_name:
-        raise FastaFormatError(fasta_str, reason="no db, unique_identifier, or entry_name found")
-
-    def _join_list_values(data: dict[str, list[str]]) -> dict[str, str | None]:
-        return {k: " ".join(v) if v else None for k, v in data.items()}
-
-    joined_info = _join_list_values(info)
-    standard_keys = {f.value for f in FastaFields}
-    additional_fields = {k: v for k, v in joined_info.items() if k not in standard_keys and v}
-
-    return FastaEntry(
-        db=db,
-        unique_identifier=unique_identifier,
-        entry_name=entry_name,
-        protein_name=joined_info.get("PN"),
-        organism_name=joined_info.get("OS"),
-        organism_identifier=joined_info.get("OX"),
-        gene_name=joined_info.get("GN"),
-        protein_existence=joined_info.get("PE"),
-        sequence_version=joined_info.get("SV"),
-        additional_fields=additional_fields,
-    )
