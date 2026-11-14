@@ -1,8 +1,9 @@
 from dataclasses import asdict
 
+import pandas as pd
 import pytest
 
-from fastaframes.fastaframes import _fasta_str_to_entry
+from fastaframes.fastaframes import _fasta_str_to_entry, to_df
 
 
 @pytest.mark.parametrize(
@@ -110,7 +111,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
                 "db": "tr",
                 "unique_identifier": "G3MXS6",
                 "entry_name": "G3MXS6_BOVIN",
-                "protein_name": "Uncharacterized protein (Fragment)",
+                "protein_name": "Uncharacterized protein (Fragment)",  # surrounding whitespace is trimmed
                 "organism_name": None,
                 "organism_identifier": None,
                 "gene_name": None,
@@ -121,7 +122,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry
             },
         ),
         (
-            ">tr|G3MXS6|G3MXS6_BOVIN Uncharacterized protein (Fragment)  PE=4 SV=1",
+            ">tr|G3MXS6|G3MXS6_BOVIN Uncharacterized protein (Fragment)  PE=4 SV=1",  # note the extra space
             {
                 "db": "tr",
                 "unique_identifier": "G3MXS6",
@@ -241,3 +242,28 @@ def test_extract_fasta_info(fasta_entry: str, expected: dict[str, object]):
     result = asdict(_fasta_str_to_entry(fasta_entry))
     assert result.pop("raw_header") == fasta_entry[1:]
     assert result == expected
+
+
+
+def test_to_df_non_uniprot_headers():
+    fasta_content = """>NP_000549.1 hemoglobin subunit alpha [Homo sapiens]
+MVLSPADKTN
+>UniRef90_P69905 Hemoglobin subunit alpha n=12 Tax=Primates TaxID=9443 RepID=HBA_HUMAN
+MVLSPADKTN
+>ENSZVIP00000000002.1 pep UG_Zviv_1:LG1:5289:19862:-1 gene:ENSZVIG00000000002.1 transcript:ENSZVIT00000000002.1 gene_biotype:protein_coding transcript_biotype:protein_coding
+MVLSPADKTN
+"""
+
+    df = to_df(fasta_content)
+
+    assert {"organism_name", "organism_identifier"}.issubset(df.columns)
+    assert len(df) == 3
+
+    assert df.loc[0, "organism_name"] == "Homo sapiens"
+    assert pd.isna(df.loc[0, "organism_identifier"])
+
+    assert df.loc[1, "organism_name"] == "Primates"
+    assert df.loc[1, "organism_identifier"] == "9443"
+
+    assert pd.isna(df.loc[2, "organism_name"])
+    assert pd.isna(df.loc[2, "organism_identifier"])
