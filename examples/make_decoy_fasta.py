@@ -1,8 +1,20 @@
+"""Build a target-decoy FASTA database from a target one.
+
+Run it from anywhere: the input is resolved relative to this file, and the output is
+written to a temporary directory so that running the example never leaves files in the
+repository.
+"""
+
+import tempfile
+from pathlib import Path
+
 import pandas as pd
 
 from fastaframes import to_df, to_fasta
 
-FASTA_FILE = "../tests/data/test.fasta"
+# Resolve the input relative to this file, so the example runs from any working directory.
+FASTA_FILE = Path(__file__).resolve().parent.parent / "tests" / "data" / "test.fasta"
+OUTPUT_DIR = Path(tempfile.mkdtemp(prefix="fastaframes-decoy-"))
 
 # fastaframes accepts multiple types of inputs, in this example we will use a file path
 fasta_df = to_df(data=FASTA_FILE)
@@ -20,4 +32,7 @@ decoy_df["protein_sequence"] = decoy_df["protein_sequence"].str[::-1]
 df = pd.concat([fasta_df, decoy_df])
 
 # write df to FASTA file
-to_fasta(df, "decoy.fasta")
+output_file = OUTPUT_DIR / "decoy.fasta"
+to_fasta(df, output_file)
+
+print(f"{len(fasta_df)} target and {len(decoy_df)} decoy entries written to {output_file}")

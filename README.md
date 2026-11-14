@@ -181,7 +181,7 @@ The full list is in [CHANGELOG.md](CHANGELOG.md).
 
 ```sh
 pip install -e ".[dev]"
-just check   # ruff, ty and pytest
+just check   # ruff check, ruff format --check, ty and pytest
 ```
 
 ## License
