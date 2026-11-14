@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose new behaviour, a new column, or a change to the public API.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        FastaFrames is deliberately small: FASTA files to pandas DataFrames and back.
+        Parsing, header formats and sequence operations belong in
+        [fastatacular](https://github.com/tacular-omics/fastatacular), which does all of
+        FastaFrames' reading and writing. If your request is about how a header is parsed,
+        please open it there instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: Describe the task you are trying to accomplish, not only the function you want added.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed interface
+      description: Show the code you would like to be able to write.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Existing functions, pandas operations on the DataFrame, other packages, or workarounds, and why they did not fit.
+    validations:
+      required: false
+  - type: input
+    id: reference
+    attributes:
+      label: Specification or publication this follows, if any
+      description: A link to the UniProt header documentation, the FASTA convention, or the paper that defines the behaviour.
+    validations:
+      required: false
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you like to implement this yourself
+      options:
+        - "Yes, I would like to open a pull request"
+        - "No, I am requesting it only"
+    validations:
+      required: true

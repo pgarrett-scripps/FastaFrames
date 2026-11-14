@@ -2,8 +2,8 @@
 install:
     pip install -e ".[dev]"
 
-# Run all checks (lint, typecheck, test)
-check: lint typecheck test
+# Run all checks (lint, format check, typecheck, test) - same set as CI
+check: lint fmt-check typecheck test
 
 # Lint with ruff
 lint:
