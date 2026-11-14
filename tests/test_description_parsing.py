@@ -244,15 +244,15 @@ def test_extract_fasta_info(fasta_entry: str, expected: dict[str, object]):
     assert result == expected
 
 
-
 def test_to_df_non_uniprot_headers():
-    fasta_content = """>NP_000549.1 hemoglobin subunit alpha [Homo sapiens]
-MVLSPADKTN
->UniRef90_P69905 Hemoglobin subunit alpha n=12 Tax=Primates TaxID=9443 RepID=HBA_HUMAN
-MVLSPADKTN
->ENSZVIP00000000002.1 pep UG_Zviv_1:LG1:5289:19862:-1 gene:ENSZVIG00000000002.1 transcript:ENSZVIT00000000002.1 gene_biotype:protein_coding transcript_biotype:protein_coding
-MVLSPADKTN
-"""
+    fasta_content = (
+        ">NP_000549.1 hemoglobin subunit alpha [Homo sapiens]\n"
+        "MVLSPADKTN\n"
+        ">UniRef90_P69905 Hemoglobin subunit alpha n=12 Tax=Primates TaxID=9443 RepID=HBA_HUMAN\n"
+        "MVLSPADKTN\n"
+        ">ENSZVIP00000000002.1 pep UG_Zviv_1:LG1:5289:19862:-1 gene:ENSZVIG00000000002.1 transcript:ENSZVIT00000000002.1 gene_biotype:protein_coding transcript_biotype:protein_coding\n"
+        "MVLSPADKTN\n"
+    )
 
     df = to_df(fasta_content)
 
