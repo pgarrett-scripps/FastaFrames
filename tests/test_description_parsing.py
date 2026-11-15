@@ -111,7 +111,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry, to_df
                 "db": "tr",
                 "unique_identifier": "G3MXS6",
                 "entry_name": "G3MXS6_BOVIN",
-                "protein_name": "Uncharacterized protein (Fragment)",  # surrounding whitespace is trimmed
+                "protein_name": "Uncharacterized protein (Fragment)",
                 "organism_name": None,
                 "organism_identifier": None,
                 "gene_name": None,
@@ -127,7 +127,7 @@ from fastaframes.fastaframes import _fasta_str_to_entry, to_df
                 "db": "tr",
                 "unique_identifier": "G3MXS6",
                 "entry_name": "G3MXS6_BOVIN",
-                "protein_name": "Uncharacterized protein (Fragment)",
+                "protein_name": "Uncharacterized protein (Fragment)",  # surrounding whitespace is trimmed
                 "organism_name": None,
                 "organism_identifier": None,
                 "gene_name": None,
@@ -221,15 +221,18 @@ from fastaframes.fastaframes import _fasta_str_to_entry, to_df
             },
         ),
         (
-            ">ENSZVIP00000000002.1 pep UG_Zviv_1:LG1:5289:19862:-1 gene:ENSZVIG00000000002.1 transcript:ENSZVIT00000000002.1 gene_biotype:protein_coding transcript_biotype:protein_coding",
+            # An Ensembl pep defline carrying gene_symbol:, which is the field fastatacular
+            # 1.4.0 began reading into gene_name. gene: and transcript: hold Ensembl ids,
+            # which no column takes, so they stay in the description only.
+            ">ENSP00000322421.5 pep chromosome:GRCh38:16:176680:177522:1 gene:ENSG00000206172.8 transcript:ENST00000320868.9 gene_biotype:protein_coding transcript_biotype:protein_coding gene_symbol:HBA1 description:hemoglobin subunit alpha 1",
             {
                 "db": None,
-                "unique_identifier": "ENSZVIP00000000002.1",
+                "unique_identifier": "ENSP00000322421.5",
                 "entry_name": None,
-                "protein_name": "pep UG_Zviv_1:LG1:5289:19862:-1 gene:ENSZVIG00000000002.1 transcript:ENSZVIT00000000002.1 gene_biotype:protein_coding transcript_biotype:protein_coding",
+                "protein_name": "pep chromosome:GRCh38:16:176680:177522:1 gene:ENSG00000206172.8 transcript:ENST00000320868.9 gene_biotype:protein_coding transcript_biotype:protein_coding gene_symbol:HBA1 description:hemoglobin subunit alpha 1",
                 "organism_name": None,
                 "organism_identifier": None,
-                "gene_name": None,
+                "gene_name": "HBA1",
                 "protein_existence": None,
                 "sequence_version": None,
                 "protein_sequence": "",
@@ -250,20 +253,24 @@ def test_to_df_non_uniprot_headers():
         "MVLSPADKTN\n"
         ">UniRef90_P69905 Hemoglobin subunit alpha n=12 Tax=Primates TaxID=9443 RepID=HBA_HUMAN\n"
         "MVLSPADKTN\n"
-        ">ENSZVIP00000000002.1 pep UG_Zviv_1:LG1:5289:19862:-1 gene:ENSZVIG00000000002.1 transcript:ENSZVIT00000000002.1 gene_biotype:protein_coding transcript_biotype:protein_coding\n"
+        ">ENSP00000322421.5 pep chromosome:GRCh38:16:176680:177522:1 gene:ENSG00000206172.8 transcript:ENST00000320868.9 gene_biotype:protein_coding transcript_biotype:protein_coding gene_symbol:HBA1 description:hemoglobin subunit alpha 1\n"
         "MVLSPADKTN\n"
     )
 
     df = to_df(fasta_content)
 
-    assert {"organism_name", "organism_identifier"}.issubset(df.columns)
+    assert {"organism_name", "organism_identifier", "gene_name"}.issubset(df.columns)
     assert len(df) == 3
 
+    # RefSeq: the organism comes from the trailing [...], and a defline carries no taxonomy id.
     assert df.loc[0, "organism_name"] == "Homo sapiens"
     assert pd.isna(df.loc[0, "organism_identifier"])
 
+    # UniRef: Tax= and TaxID= fill both organism columns.
     assert df.loc[1, "organism_name"] == "Primates"
     assert df.loc[1, "organism_identifier"] == "9443"
 
+    # Ensembl: no organism in the defline, and gene_name comes from gene_symbol:.
     assert pd.isna(df.loc[2, "organism_name"])
     assert pd.isna(df.loc[2, "organism_identifier"])
+    assert df.loc[2, "gene_name"] == "HBA1"
