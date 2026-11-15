@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Requires `fastatacular>=1.4,<2`, up from `>=1.3,<2`. fastatacular 1.4.0 added
+  bare-accession parsing, so a RefSeq, Ensembl or UniRef header produced different
+  `organism_name` and `organism_identifier` columns at the two ends of the old range:
+  `>NP_000549.1 hemoglobin subunit alpha [Homo sapiens]` gave `organism_name` of `None`
+  under 1.3.0 and `"Homo sapiens"` under 1.4.1.
+
 ## [2.0.0]
 
 FastaFrames is now a pandas layer over
