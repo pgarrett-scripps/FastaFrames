@@ -115,8 +115,12 @@ parsing and writing. The public API and DataFrame columns are unchanged.
 - black formatting
 - updated reqs with pipreqs
 
-## [1.2.1]
-- fix for malformed fastas (warning instead of error)
+## [1.2.0]
+- Accept malformed headers without three pipe-separated fields, using the first
+  header token as the unique identifier and emitting a warning.
+
+## [1.1.0]
+- Add `skip_error` support for skipping invalid FASTA entries during parsing.
 
 ## [1.0.0]
 
